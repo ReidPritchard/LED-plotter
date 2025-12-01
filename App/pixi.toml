@@ -1,0 +1,19 @@
+[workspace]
+authors = ["Reid <reidpritchard99@gmail.com>"]
+channels = ["conda-forge"]
+name = "PolarPlot"
+platforms = ["osx-64"]
+version = "0.1.0"
+
+[tasks]
+fmt = "ruff format ."
+lint = "pylint"
+
+[dependencies]
+python = ">=3.14.0,<3.15"
+pyright = ">=1.1.407,<2"
+ruff = ">=0.14.6,<0.15"
+
+[pypi-dependencies]
+pyqt6 = ">=6.10.0, <7"
+pyserial = ">=3.5, <4"
