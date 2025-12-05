@@ -1,4 +1,3 @@
-// Hanging Pen Plotter - Basic Functionality
 // Hardware: Two stepper motors (left/right)
 
 #include "AFMotor_R4.h"
@@ -31,6 +30,12 @@ float currentX = MACHINE_WIDTH / 2.0;  // Start at center
 float currentY = MACHINE_HEIGHT / 2.0;
 float leftCableLength = 0;
 float rightCableLength = 0;
+
+// AIDEV-NOTE: LED color state for interpolation during movement
+// Current color persists between movements unless explicitly changed
+CRGB currentColor = CRGB::Blue;
+CRGB targetColor = CRGB::Blue;
+bool useColorInterpolation = false;
 
 // LED and toggle button state
 #define LED_PIN A0
@@ -73,13 +78,15 @@ void setup() {
 
   // AIDEV-NOTE: Initialize LED based on shouldRun state
   if (shouldRun) {
-    leds[0] = CRGB::Blue;  // Default color when enabled (will be controlled by drawing logic)
+    leds[0] = currentColor;  // Use current color state
   } else {
     leds[0] = CRGB::Black;  // LED off when disabled
   }
   FastLED.show();
 
-  Serial.println("Ready! Commands: M x y (move), H (home), T (test), C (calibrate), ? (status)");
+  Serial.println("Ready! Commands:");
+  Serial.println("  M x y [r g b] - Move (with optional color interpolation)");
+  Serial.println("  H - Home, T - Test, C - Calibrate, ? - Status");
 }
 
 // ===== MAIN LOOP =====
@@ -115,7 +122,7 @@ void processButtonIn() {
         if (!shouldRun) {
           leds[0] = CRGB::Black;  // Turn off LED when disabled
         } else {
-          leds[0] = CRGB::Blue;  // Default color when re-enabled (will be controlled by drawing logic)
+          leds[0] = currentColor;  // Restore current color when re-enabled
         }
         FastLED.show();
       }
@@ -140,6 +147,19 @@ void calculateCableLengths(float x, float y, float &leftLen, float &rightLen) {
 // Update current cable lengths based on position
 void updateCableLengths() {
   calculateCableLengths(currentX, currentY, leftCableLength, rightCableLength);
+}
+
+// AIDEV-NOTE: Interpolate LED color based on movement progress (0.0 to 1.0)
+// Uses linear interpolation in RGB space for smooth color transitions
+CRGB interpolateColor(CRGB startColor, CRGB endColor, float progress) {
+  // Constrain progress to valid range
+  progress = constrain(progress, 0.0, 1.0);
+
+  uint8_t r = startColor.r + (endColor.r - startColor.r) * progress;
+  uint8_t g = startColor.g + (endColor.g - startColor.g) * progress;
+  uint8_t b = startColor.b + (endColor.b - startColor.b) * progress;
+
+  return CRGB(r, g, b);
 }
 
 // ===== MOVEMENT FUNCTIONS =====
@@ -182,8 +202,18 @@ void moveTo(float targetX, float targetY) {
   Serial.print(" R=");
   Serial.println(rightSteps);
 
-  // Step both motors in sync
+  // AIDEV-NOTE: Step both motors in sync with color interpolation
+  // Progress is calculated as (current_step / total_steps) for smooth color transitions
   for (int i = 0; i < maxSteps; i++) {
+    // Update LED color based on movement progress
+    if (useColorInterpolation && maxSteps > 0) {
+      float progress = (float)i / (float)maxSteps;
+      CRGB interpolatedColor = interpolateColor(currentColor, targetColor, progress);
+      leds[0] = interpolatedColor;
+      FastLED.show();
+    }
+
+    // Step motors
     if (i < leftSteps) {
       leftMotor.step(1, leftDir, DOUBLE);  // DOUBLE for more torque
     }
@@ -191,6 +221,14 @@ void moveTo(float targetX, float targetY) {
       rightMotor.step(1, rightDir, DOUBLE);
     }
     delayMicroseconds(500);  // Speed control
+  }
+
+  // AIDEV-NOTE: Finalize LED color at end of movement
+  // Set to exact target color to avoid rounding errors from interpolation
+  if (useColorInterpolation) {
+    currentColor = targetColor;  // Color persists after movement
+    leds[0] = currentColor;
+    FastLED.show();
   }
 
   // Update position
@@ -338,16 +376,117 @@ void processCommand() {
   switch (cmd) {
     case 'H':
     case 'h':
+    case 'G28': // g-code for "go home"
       moveHome();
       break;
 
     case 'M':
     case 'm':
+    case 'G00': // Rapid move g-code
+    case 'G01': // Linear move g-code
       {
-        // Move command: M x y
-        float x = Serial.parseFloat();
-        float y = Serial.parseFloat();
-        moveTo(x, y);
+        // AIDEV-NOTE: Move command with optional RGB color interpolation
+        // Formats:
+        //   M X100 Y200              - Letter-prefixed (G-code style)
+        //   M 100 200                - Space-separated positional
+        //   M 100 200 255 0 128      - With color interpolation
+        Serial.println("Processing move command...");
+
+        // AIDEV-NOTE: Wait for complete command to arrive over serial
+        // Serial data arrives at 9600 baud (~960 bytes/sec), so allow time for full line
+        delay(50);  // 50ms should be enough for typical command length
+
+        bool hasX = false, hasY = false;
+        float targetX = currentX;
+        float targetY = currentY;
+        int r = -1, g = -1, b = -1;
+
+        // Skip leading whitespace
+        while (Serial.available() && Serial.peek() == ' ') {
+          Serial.read();
+        }
+
+        // AIDEV-NOTE: Parse arguments - supports both letter-prefixed and positional
+        while (Serial.available()) {
+          char param = Serial.peek();
+
+          if (param == 'X' || param == 'x') {
+            Serial.read();  // consume the letter
+            targetX = Serial.parseFloat();
+            hasX = true;
+          } else if (param == 'Y' || param == 'y') {
+            Serial.read();
+            targetY = Serial.parseFloat();
+            hasY = true;
+          } else if (param == 'R' || param == 'r') {
+            Serial.read();
+            r = Serial.parseInt();
+          } else if (param == 'G' || param == 'g') {
+            Serial.read();
+            g = Serial.parseInt();
+          } else if (param == 'B' || param == 'b') {
+            Serial.read();
+            b = Serial.parseInt();
+          } else if ((param >= '0' && param <= '9') || param == '-' || param == '.') {
+            // AIDEV-NOTE: Space-separated numeric value - interpret based on position
+            // Order: X Y R G B (first two are coordinates, next three are color)
+            if (!hasX) {
+              // First number is X
+              targetX = Serial.parseFloat();
+              hasX = true;
+            } else if (!hasY) {
+              // Second number is Y
+              targetY = Serial.parseFloat();
+              hasY = true;
+            } else if (r == -1) {
+              // Third number is R
+              r = Serial.parseInt();
+            } else if (g == -1) {
+              // Fourth number is G
+              g = Serial.parseInt();
+            } else if (b == -1) {
+              // Fifth number is B
+              b = Serial.parseInt();
+            }
+          } else if (param == ' ' || param == '\t') {
+            Serial.read();  // skip whitespace
+          } else if (param == '\n' || param == '\r') {
+            break;  // end of command
+          } else {
+            Serial.read();  // skip unknown character
+          }
+
+          // Skip whitespace between values
+          while (Serial.available() && (Serial.peek() == ' ' || Serial.peek() == '\t')) {
+            Serial.read();
+          }
+        }
+
+        // Debug: show parsed values
+        Serial.print("Parsed: X=");
+        Serial.print(targetX);
+        Serial.print(" Y=");
+        Serial.print(targetY);
+        if (r >= 0 && g >= 0 && b >= 0) {
+          Serial.print(" R=");
+          Serial.print(r);
+          Serial.print(" G=");
+          Serial.print(g);
+          Serial.print(" B=");
+          Serial.print(b);
+        }
+        Serial.println();
+
+        // Set up color interpolation if RGB values provided
+        if (r >= 0 && g >= 0 && b >= 0) {
+          targetColor = CRGB(constrain(r, 0, 255), constrain(g, 0, 255), constrain(b, 0, 255));
+          useColorInterpolation = true;
+        } else {
+          useColorInterpolation = false;
+        }
+
+        moveTo(targetX, targetY);
+
         break;
       }
 
@@ -359,35 +498,13 @@ void processCommand() {
     case 'T':
     case 't':
       // Test pattern: move in a square
-      testSquare();
+      Serial.println("ERROR: Send individual move commands for testing.");
       break;
 
     case '?':
       printStatus();
       break;
   }
-}
-
-// ===== TEST FUNCTIONS =====
-void testSquare() {
-  Serial.println("Moving in test square...");
-  float cx = MACHINE_WIDTH / 2.0;
-  float cy = MACHINE_HEIGHT / 2.0;
-  float size = 100;
-
-  moveTo(cx - size / 2, cy - size / 2);
-  delay(500);
-  moveTo(cx + size / 2, cy - size / 2);
-  delay(500);
-  moveTo(cx + size / 2, cy + size / 2);
-  delay(500);
-  moveTo(cx - size / 2, cy + size / 2);
-  delay(500);
-  moveTo(cx - size / 2, cy - size / 2);
-  delay(500);
-
-  moveHome();
-  Serial.println("Test complete!");
 }
 
 void printStatus() {
@@ -403,6 +520,13 @@ void printStatus() {
   Serial.print(leftCableLength);
   Serial.print(" R=");
   Serial.println(rightCableLength);
+  Serial.print("LED Color (RGB): (");
+  Serial.print(currentColor.r);
+  Serial.print(", ");
+  Serial.print(currentColor.g);
+  Serial.print(", ");
+  Serial.print(currentColor.b);
+  Serial.println(")");
   Serial.print("STEPS_PER_MM: ");
   Serial.println(STEPS_PER_MM, 4);
 }

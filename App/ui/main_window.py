@@ -9,13 +9,12 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtWidgets import (
     QComboBox,
+    QDockWidget,
     QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QSplitter,
     QToolBar,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -50,37 +49,175 @@ class PlotterControlWindow(QMainWindow):
 
     def _setup_ui(self):
         """Initialize the user interface."""
+        self._create_menu_bar()
         self._create_toolbar()
+        self._create_dock_widgets()
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+    def _create_menu_bar(self):
+        """Create the menu bar with View menu for panel toggles."""
+        menubar = self.menuBar()
 
-        # Middle: Splitter with state display and command queue
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.state_panel = StatePanel(self.plotter_state, self.machine_config)
-        self.queue_panel = QueuePanel()
-        splitter.addWidget(self.state_panel)
-        splitter.addWidget(self.queue_panel)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 1)
-        splitter.setVisible(False)
-        main_layout.addWidget(splitter)
+        if menubar is None:
+            return
 
-        # Top: Simulation panel (hidden by default)
+        # View menu
+        menubar.addMenu("&View")
+
+        # These actions will be created after dock widgets are set up
+        self.view_actions = {}
+
+    def _create_dock_widgets(self):
+        """Create all panels as dockable widgets."""
+        # AIDEV-NOTE: All panels are now QDockWidgets for flexible layout
+
+        # Simulation panel - Center/Top
         self.simulation_ui = SimulationUI(
             self.machine_config, self.plotter_state
         )
-        self.simulation_ui.setVisible(True)
-        main_layout.addWidget(self.simulation_ui)
+        self.simulation_dock = self._create_dock_widget(
+            "Simulation",
+            self.simulation_ui,
+            Qt.DockWidgetArea.TopDockWidgetArea,
+        )
 
-        # Bottom: Command controls
+        # State panel - Left side
+        self.state_panel = StatePanel(self.plotter_state, self.machine_config)
+        self.state_dock = self._create_dock_widget(
+            "State", self.state_panel, Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+
+        # Queue panel - Right side
+        self.queue_panel = QueuePanel()
+        self.queue_dock = self._create_dock_widget(
+            "Queue", self.queue_panel, Qt.DockWidgetArea.RightDockWidgetArea
+        )
+
+        # Command panel - Bottom left
         self.command_panel = CommandPanel(self.machine_config)
-        main_layout.addWidget(self.command_panel)
+        self.command_dock = self._create_dock_widget(
+            "Commands",
+            self.command_panel,
+            Qt.DockWidgetArea.BottomDockWidgetArea,
+        )
 
-        # Console output
+        # Console panel - Bottom right
         self.console_panel = ConsolePanel()
-        main_layout.addWidget(self.console_panel)
+        self.console_dock = self._create_dock_widget(
+            "Console",
+            self.console_panel,
+            Qt.DockWidgetArea.BottomDockWidgetArea,
+        )
+
+        # Tabify console with commands (they'll be in tabs at the bottom)
+        self.tabifyDockWidget(self.command_dock, self.console_dock)
+
+        # Set initial visibility
+        self.simulation_dock.setVisible(True)
+        self.state_dock.setVisible(False)
+        self.queue_dock.setVisible(True)
+        self.command_dock.setVisible(True)
+        self.console_dock.setVisible(True)
+
+        # Add View menu actions now that dock widgets exist
+        self._add_view_menu_actions()
+        self._add_toolbar_toggles()
+
+    def _create_dock_widget(
+        self, title: str, widget: QWidget, area: Qt.DockWidgetArea
+    ) -> QDockWidget:
+        """Create a dockable widget with standard settings.
+
+        Args:
+            title: Window title for the dock widget
+            widget: The widget to place inside the dock
+            area: Default dock area (Left, Right, Top, Bottom)
+
+        Returns:
+            The created QDockWidget
+        """
+        dock = QDockWidget(title, self)
+        dock.setWidget(widget)
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea
+            | Qt.DockWidgetArea.RightDockWidgetArea
+            | Qt.DockWidgetArea.TopDockWidgetArea
+            | Qt.DockWidgetArea.BottomDockWidgetArea
+        )
+        self.addDockWidget(area, dock)
+        return dock
+
+    def _add_view_menu_actions(self):
+        """Add toggle actions for each dock widget to the View menu."""
+        menubar = self.menuBar()
+        if menubar is None:
+            return
+        view_menu = menubar.actions()[0].menu()  # Get the View menu
+        if view_menu is None:
+            return
+
+        # Create toggle actions for each dock widget
+        dock_widgets = [
+            ("Simulation", self.simulation_dock),
+            ("State", self.state_dock),
+            ("Queue", self.queue_dock),
+            ("Commands", self.command_dock),
+            ("Console", self.console_dock),
+        ]
+
+        for name, dock in dock_widgets:
+            action = dock.toggleViewAction()
+            if not action:
+                continue
+            action.setText(f"Show {name}")
+            view_menu.addAction(action)
+            self.view_actions[name] = action
+
+    def _add_toolbar_toggles(self):
+        """Add toggle buttons to toolbar for each dock widget."""
+        # Get the main toolbar
+        toolbar = self.findChild(QToolBar, "Main Toolbar")
+        if not toolbar:
+            return
+
+        # Add label for panel toggles
+        toolbar.addWidget(QLabel("Panels:"))
+
+        # Emoji/icon mapping for each panel
+        panel_icons = {
+            "Simulation": "📊",
+            "State": "📍",
+            "Queue": "📋",
+            "Commands": "🎮",
+            "Console": "💬",
+        }
+
+        # Create toggle buttons for each dock widget
+        dock_widgets = [
+            ("Simulation", self.simulation_dock),
+            ("State", self.state_dock),
+            ("Queue", self.queue_dock),
+            ("Commands", self.command_dock),
+            ("Console", self.console_dock),
+        ]
+
+        for name, dock in dock_widgets:
+            # Use the dock widget's built-in toggle action
+            action = dock.toggleViewAction()
+            if not action:
+                continue
+
+            # Create a toolbar button from the action
+            btn = QPushButton(panel_icons.get(name, "◻"))
+            btn.setToolTip(f"Toggle {name} panel")
+            btn.setCheckable(True)
+            btn.setChecked(dock.isVisible())
+            btn.setMaximumWidth(35)
+
+            # Connect button to dock visibility
+            btn.clicked.connect(action.trigger)
+            dock.visibilityChanged.connect(btn.setChecked)
+
+            toolbar.addWidget(btn)
 
     def _create_toolbar(self):
         """Create the main toolbar with connection controls and settings."""
@@ -125,6 +262,11 @@ class PlotterControlWindow(QMainWindow):
         self.status_label.setToolTip("Connection status")
         toolbar.addWidget(self.status_label)
 
+        toolbar.addSeparator()
+
+        # Panel toggle buttons (will be populated after dock widgets are created)
+        # This is a placeholder - actual buttons added in _add_toolbar_toggles()
+
     def _connect_signals(self):
         """Connect all UI signals to handlers."""
 
@@ -142,10 +284,22 @@ class PlotterControlWindow(QMainWindow):
 
         # Command panel
         self.command_panel.home_btn.clicked.connect(
-            lambda: self._queue_command("H")
+            lambda: self._queue_command("G28")
         )
         self.command_panel.test_btn.clicked.connect(
-            lambda: self._queue_command("T")
+            lambda:
+            # AIDEV-NOTE: Queue commands to draw a colorful test square with LED interpolation
+            # Each edge transitions to a different color for visual feedback
+            self._queue_command_multiple(
+                [
+                    "H",  # Home
+                    "M 200 200 255 0 0",  # Move to start, fade to red
+                    "M 400 200 0 255 0",  # Bottom edge, fade to green
+                    "M 400 400 0 0 255",  # Right edge, fade to blue
+                    "M 200 400 255 255 0",  # Top edge, fade to yellow
+                    "M 200 200 255 0 255",  # Left edge, fade to magenta
+                ]
+            )
         )
         self.command_panel.calibrate_btn.clicked.connect(
             lambda: self._queue_command("C")
@@ -327,6 +481,11 @@ class PlotterControlWindow(QMainWindow):
         self.queue_panel.add_command(command)
         self.console_panel.append(f"Queued: {command}")
 
+    def _queue_command_multiple(self, commands: list[str]):
+        """Add multiple commands to the display queue."""
+        for command in commands:
+            self._queue_command(command)
+
     def _queue_move_command(self):
         """Queue a move command with current input values."""
         x, y = self.command_panel.get_move_coordinates()
@@ -457,7 +616,8 @@ class PlotterControlWindow(QMainWindow):
 
     # === Application Lifecycle ===
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0):
         """Clean up when window closes."""
         self._disconnect()
-        event.accept()
+        if a0:
+            a0.accept()

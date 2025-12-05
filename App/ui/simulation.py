@@ -82,7 +82,7 @@ class SimulationCanvas(QtWidgets.QWidget):
         right_cable = math.sqrt((self.machine_config.width - x) ** 2 + y**2)
         return left_cable, right_cable
 
-    def paintEvent(self, event):
+    def paintEvent(self, a0):
         """Render the simulation visualization."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -208,11 +208,15 @@ class SimulationUI(QtWidgets.QWidget):
     """UI for simulating the machine's state and future behavior."""
 
     def __init__(
-        self, machine_config: MachineConfig, plotter_state: PlotterState
+        self,
+        machine_config: MachineConfig,
+        plotter_state: PlotterState,
+        command_queue=None,
     ):
         super().__init__()
         self.machine_config = machine_config
         self.plotter_state = plotter_state
+        self.command_queue = command_queue
 
         # Simulation state
         self.is_running = False
@@ -325,6 +329,8 @@ class SimulationUI(QtWidgets.QWidget):
             self.start_button.setText("▶ Running...")
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(True)
+
+            self.execute_command_queue()
 
     def stop_simulation(self):
         """Stop the simulation animation."""
@@ -455,3 +461,51 @@ class SimulationUI(QtWidgets.QWidget):
         self.canvas.set_position(
             plotter_state.position_x, plotter_state.position_y
         )
+
+    def execute_command_queue(self):
+        """
+        Execute commands from the command queue in simulation.
+
+        Call this periodically to process queued commands.
+        """
+        print("Executing command queue...")
+        if self.command_queue is None:
+            print("No command queue available.")
+            return
+
+        while not self.command_queue.is_empty():
+            self._execute_next_command()
+
+        print("Command queue execution complete.")
+
+    def _execute_next_command(self):
+        """Execute the next command in the queue, if any."""
+        if (
+            self.command_queue
+            and not self.command_queue.is_empty()
+            and not self.is_running
+        ):
+            command = self.command_queue.queue_list.item(0).text()
+            print(f"Simulating command: {command}")
+
+            if (
+                command.startswith("G0")
+                or command.startswith("G1")
+                or command.startswith("M")
+            ):
+                print("Simulating move command")
+                parts = command.split()
+                x = self.canvas.sim_x
+                y = self.canvas.sim_y
+                for part in parts[1:]:
+                    if part.startswith("X"):
+                        x = float(part[1:])
+                    elif part.startswith("Y"):
+                        y = float(part[1:])
+                self.move_to(x, y)
+            elif command.startswith("G28"):
+                print("Simulating homing command")
+                self._move_to_home()
+
+            # Remove command from queue after execution
+            self.command_queue.remove_first()
