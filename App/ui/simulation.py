@@ -8,7 +8,7 @@ from PyQt6.QtCore import QPointF, Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QCheckBox, QSlider
 
-from models import MachineConfig, PlotterState
+from models import ColoredPath, MachineConfig, PlotterState
 
 
 class SimulationCanvas(QtWidgets.QWidget):
@@ -28,6 +28,10 @@ class SimulationCanvas(QtWidgets.QWidget):
         self.show_trail = True
         self.show_safe_area = True
 
+        # Preview paths from image processing
+        self.preview_paths: List[ColoredPath] = []
+        self.show_preview = True
+
     def set_position(self, x: float, y: float):
         """Update the simulated gondola position."""
         self.sim_x = x
@@ -43,6 +47,16 @@ class SimulationCanvas(QtWidgets.QWidget):
     def clear_trail(self):
         """Clear the path trail."""
         self.path_trail.clear()
+        self.update()
+
+    def set_preview_paths(self, paths: List[ColoredPath]):
+        """Set paths for preview display (from image processing)."""
+        self.preview_paths = paths
+        self.update()
+
+    def clear_preview_paths(self):
+        """Clear preview paths."""
+        self.preview_paths = []
         self.update()
 
     def _world_to_screen(self, x: float, y: float) -> Tuple[float, float]:
@@ -180,6 +194,33 @@ class SimulationCanvas(QtWidgets.QWidget):
 
             painter.setPen(QPen(QColor(0, 150, 0), 1.5))
             painter.drawPath(path)
+
+        # Draw preview paths from image processing
+        # AIDEV-NOTE: Preview paths drawn in their extracted colors
+        if self.show_preview and self.preview_paths:
+            for colored_path in self.preview_paths:
+                if len(colored_path.points) < 2:
+                    continue
+
+                # Use the path's extracted color
+                r, g, b = colored_path.color
+                painter.setPen(QPen(QColor(r, g, b), 1.5))
+
+                path = QPainterPath()
+                first_point = self._world_to_screen(
+                    colored_path.points[0][0],
+                    colored_path.points[0][1],
+                )
+                path.moveTo(QPointF(first_point[0], first_point[1]))
+
+                for x, y in colored_path.points[1:]:
+                    screen_pos = self._world_to_screen(x, y)
+                    path.lineTo(QPointF(screen_pos[0], screen_pos[1]))
+
+                if colored_path.is_closed:
+                    path.closeSubpath()
+
+                painter.drawPath(path)
 
         # Draw gondola/pen holder
         gondola_radius = 6
@@ -579,3 +620,13 @@ class SimulationUI(QtWidgets.QWidget):
             print("Status query ignored in simulation")
         else:
             print(f"Unknown command in simulation: {command}")
+
+    # === Preview Path Methods ===
+
+    def set_preview_paths(self, paths: List[ColoredPath]):
+        """Set image preview paths on canvas."""
+        self.canvas.set_preview_paths(paths)
+
+    def clear_preview_paths(self):
+        """Clear image preview paths."""
+        self.canvas.clear_preview_paths()

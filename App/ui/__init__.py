@@ -8,6 +8,7 @@ from ui.command_panel import CommandPanel
 from ui.config_panel import ConfigPanel
 from ui.connection_panel import ConnectionPanel
 from ui.console_panel import ConsolePanel
+from ui.image_panel import ImagePanel
 from ui.main_window import PlotterControlWindow
 from ui.queue_panel import QueuePanel
 from ui.simulation import SimulationUI
@@ -21,5 +22,6 @@ __all__ = [
     "QueuePanel",
     "CommandPanel",
     "ConsolePanel",
+    "ImagePanel",
     "SimulationUI",
 ]

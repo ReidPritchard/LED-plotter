@@ -18,10 +18,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import CONFIG_FILE, ConnectionState, MachineConfig, PlotterState
+from models import CONFIG_FILE, ConnectionState, MachineConfig, PlotterState, ProcessedImage
 from serial_handler import SERIAL_AVAILABLE, SerialThread
 from ui.command_panel import CommandPanel
 from ui.console_panel import ConsolePanel
+from ui.image_panel import ImagePanel
 from ui.queue_panel import QueuePanel
 from ui.settings_dialog import SettingsDialog
 from ui.simulation import SimulationUI
@@ -82,6 +83,12 @@ class PlotterControlWindow(QMainWindow):
             "Queue", self.queue_panel, Qt.DockWidgetArea.RightDockWidgetArea
         )
 
+        # Image import panel - Right side (tabbed with Queue)
+        self.image_panel = ImagePanel(self.machine_config)
+        self.image_dock = self._create_dock_widget(
+            "Image Import", self.image_panel, Qt.DockWidgetArea.RightDockWidgetArea
+        )
+
         # Simulation panel - Center/Top
         self.simulation_ui = SimulationUI(
             self.machine_config,
@@ -112,6 +119,9 @@ class PlotterControlWindow(QMainWindow):
 
         # Tabify console with commands (they'll be in tabs at the bottom)
         self.tabifyDockWidget(self.command_dock, self.console_dock)
+
+        # Tabify image panel with queue (on the right side)
+        self.tabifyDockWidget(self.queue_dock, self.image_dock)
 
         # Set initial visibility
         self.simulation_dock.setVisible(True)
@@ -162,6 +172,7 @@ class PlotterControlWindow(QMainWindow):
             ("Simulation", self.simulation_dock),
             ("State", self.state_dock),
             ("Queue", self.queue_dock),
+            ("Image Import", self.image_dock),
             ("Commands", self.command_dock),
             ("Console", self.console_dock),
         ]
@@ -189,6 +200,7 @@ class PlotterControlWindow(QMainWindow):
             "Simulation": "📊",
             "State": "📍",
             "Queue": "📋",
+            "Image Import": "🖼",
             "Commands": "🎮",
             "Console": "💬",
         }
@@ -198,6 +210,7 @@ class PlotterControlWindow(QMainWindow):
             ("Simulation", self.simulation_dock),
             ("State", self.state_dock),
             ("Queue", self.queue_dock),
+            ("Image Import", self.image_dock),
             ("Commands", self.command_dock),
             ("Console", self.console_dock),
         ]
@@ -318,6 +331,11 @@ class PlotterControlWindow(QMainWindow):
         self.command_panel.send_custom_btn.clicked.connect(
             self._send_custom_command
         )
+
+        # Image panel
+        self.image_panel.processing_complete.connect(self._on_image_processed)
+        self.image_panel.preview_requested.connect(self._on_preview_requested)
+        self.image_panel.add_to_queue_requested.connect(self._queue_image_commands)
 
     # === Settings Dialog ===
 
@@ -584,6 +602,36 @@ class PlotterControlWindow(QMainWindow):
         """Handle errors from serial thread."""
         self.console_panel.append(f"❌ Error: {error}")
         QMessageBox.critical(self, "Serial Error", error)
+
+    # === Image Processing Handlers ===
+
+    def _on_image_processed(self, processed_image: ProcessedImage):
+        """Handle completed image processing."""
+        path_count = len(processed_image.paths)
+        total_length = processed_image.total_path_length
+        cmd_count = processed_image.command_count
+        self.console_panel.append(
+            f"🖼 Image processed: {path_count} paths, {cmd_count} commands, "
+            f"{total_length:.1f}mm total length"
+        )
+
+    def _on_preview_requested(self, processed_image: ProcessedImage):
+        """Show processed paths in simulation canvas."""
+        # AIDEV-NOTE: Pass paths to simulation for colored preview
+        self.simulation_ui.set_preview_paths(processed_image.paths)
+        self.console_panel.append(
+            f"🔍 Preview loaded: {len(processed_image.paths)} paths"
+        )
+        # Bring simulation panel to front
+        self.simulation_dock.raise_()
+
+    def _queue_image_commands(self, commands: list[str]):
+        """Add image-generated commands to queue."""
+        for command in commands:
+            self._queue_command(command)
+        self.console_panel.append(
+            f"➕ Added {len(commands)} commands from image to queue"
+        )
 
     # === Configuration Management ===
 

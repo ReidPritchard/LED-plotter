@@ -56,3 +56,60 @@ class PlotterState:
 
     steps_per_mm: float = 5.035
     connection: ConnectionState = ConnectionState.DISCONNECTED
+
+
+# --- Image Processing Models ---
+
+
+@dataclass
+class ColoredPath:
+    """A vectorized path with associated color.
+
+    AIDEV-NOTE: Represents a single path segment from image vectorization.
+    Points are in mm coordinates (machine space). Color is RGB (0-255).
+    """
+
+    points: list[tuple[float, float]]  # (x, y) coordinates in mm
+    color: tuple[int, int, int]  # RGB color (0-255)
+    is_closed: bool = False  # Whether path forms a closed loop
+
+
+@dataclass
+class ImageProcessingConfig:
+    """Configuration for image vectorization and color quantization."""
+
+    # Color quantization
+    num_colors: int = 8  # Number of colors to quantize to (4-32)
+    quantization_method: str = "kmeans"  # "kmeans", "median_cut", "octree"
+
+    # VTracer settings
+    filter_speckle: int = 4  # Discard patches smaller than X px
+    color_precision: int = 6  # Color precision (1-8)
+
+    # Path simplification
+    simplify_tolerance: float = 0.5  # mm tolerance for Douglas-Peucker
+    min_segment_length: float = 1.0  # Minimum segment length in mm
+
+
+@dataclass
+class ProcessedImage:
+    """Result of image processing pipeline."""
+
+    # Extracted paths with colors
+    paths: list[ColoredPath]
+
+    # Color palette extracted from image
+    palette: list[tuple[int, int, int]]
+
+    # Scaling applied to fit machine bounds
+    scale_factor: float = 1.0
+    offset_x: float = 0.0  # X offset in mm
+    offset_y: float = 0.0  # Y offset in mm
+
+    # Original image dimensions (pixels)
+    original_width: int = 0
+    original_height: int = 0
+
+    # Statistics
+    total_path_length: float = 0.0  # Total path length in mm
+    command_count: int = 0  # Number of commands that will be generated
