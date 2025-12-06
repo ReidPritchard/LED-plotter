@@ -6,23 +6,51 @@
 
 - **PyQt6 Desktop App (Python)**: GUI application for controlling the plotter, sending drawing commands, and visualizing plots
 - **Arduino Firmware**: Manages stepper motors, kinematics, and serial command processing for a hanging plotter with polar coordinate system
-- **Serial Protocol**: Text-based command interface (M x y, H, T, C, ?)
+- **Serial Protocol**: Text-based command interface (simplified G-code style) for communication between Python app and Arduino
 
 **Golden rule**: When unsure about hardware constraints, kinematics calculations, or serial protocol details, ALWAYS consult the developer rather than making assumptions that could damage the physical plotter.
 
 ---
 
+## 0.1 Current Development Phase
+
+> **Phase**: Early Alpha (v0.1.0)
+> **Focus**: Core hardware interface and basic GUI
+
+### Implementation Summary
+
+**Complete:**
+
+- Modular panel-based UI architecture (8 panels)
+- Dockable/hideable panels with View menu
+- Serial communication (threaded, non-blocking)
+- Real-time state parsing from Arduino
+- Configuration persistence (`~/.polarplot_config.json`)
+- Simulation canvas with kinematics visualization
+
+**In Progress:**
+
+- Hardware validation with physical plotter
+
+**Not Started:**
+
+- Automated testing framework
+- File import (SVG, G-code)
+- Drawing path preview
+
+---
+
 ## 1. Non-negotiable Golden Rules
 
-| #  | AI *may* do | AI *must NOT* do |
-|----|-------------|------------------|
-| G-0 | Ask for clarification about hardware limits, motor specs, or physical constraints | ❌ Make assumptions about plotter dimensions, cable lengths, or motor capabilities |
-| G-1 | Generate code **only inside** `App/` directory (Python GUI code) | ❌ Touch Arduino firmware without explicit permission |
-| G-2 | Add/update **`AIDEV-NOTE:` anchor comments** near kinematics, serial communication, or coordinate transformation code | ❌ Delete or modify existing `AIDEV-` comments |
-| G-3 | Follow PEP 8 Python style, use type hints for new code | ❌ Reformat entire files or change existing code style without request |
-| G-4 | For changes >50 LOC or affecting core kinematics/serial protocol, ask for confirmation | ❌ Make large refactors to coordinate systems or motor control without guidance |
-| G-5 | Stay within current task context | ❌ Continue work from prior prompts after "new task" designation |
-| G-6 | Preserve physical safety constraints (movement limits, speed limits) | ❌ Remove or modify constrain() calls or safety bounds without explicit permission |
+| #   | AI _may_ do                                                                                                           | AI _must NOT_ do                                                                   |
+| --- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| G-0 | Ask for clarification about hardware limits, motor specs, or physical constraints                                     | ❌ Make assumptions about plotter dimensions, cable lengths, or motor capabilities |
+| G-1 | Generate code **only inside** `App/` directory (Python GUI code)                                                      | ❌ Touch Arduino firmware without explicit permission                              |
+| G-2 | Add/update **`AIDEV-NOTE:` anchor comments** near kinematics, serial communication, or coordinate transformation code | ❌ Delete or modify existing `AIDEV-` comments                                     |
+| G-3 | Follow PEP 8 Python style, use type hints for new code                                                                | ❌ Reformat entire files or change existing code style without request             |
+| G-4 | For changes >50 LOC or affecting core kinematics/serial protocol, ask for confirmation                                | ❌ Make large refactors to coordinate systems or motor control without guidance    |
+| G-5 | Stay within current task context                                                                                      | ❌ Continue work from prior prompts after "new task" designation                   |
+| G-6 | Preserve physical safety constraints (movement limits, speed limits)                                                  | ❌ Remove or modify constrain() calls or safety bounds without explicit permission |
 
 ---
 
@@ -43,6 +71,7 @@ pixi run python app.py       # Launch the PyQt6 GUI
 ```
 
 **Important Notes:**
+
 - Uses **Pixi** package manager (not pip/conda directly)
 - Python 3.14+ required
 - PyQt6 for GUI framework
@@ -73,6 +102,7 @@ pixi run python app.py       # Launch the PyQt6 GUI
 - **Testing**: Manual testing via GUI; consider adding unit tests for coordinate transformations
 
 **Example code pattern:**
+
 ```python
 from typing import Tuple
 
@@ -105,27 +135,28 @@ class PlotterController:
 
 ## 4. Project Layout & Core Components
 
-| Directory/File | Description |
-|----------------|-------------|
-| `App/app.py` | Main application entry point - launches the GUI |
-| `App/models.py` | Data classes (ConnectionState, MachineConfig, PlotterState) and constants |
-| `App/serial_handler.py` | SerialThread for background serial communication |
-| `App/ui/` | Modular UI components package |
-| `App/ui/main_window.py` | Main window coordinator - connects all panels |
-| `App/ui/connection_panel.py` | Serial port connection controls |
-| `App/ui/config_panel.py` | Machine configuration (width, height, margin) |
-| `App/ui/state_panel.py` | Hardware state display (position, cables, calibration) |
-| `App/ui/queue_panel.py` | Command queue visualization |
-| `App/ui/command_panel.py` | Command input controls (move, home, test, etc.) |
-| `App/ui/console_panel.py` | Console output for serial communication |
-| `App/pixi.toml` | Pixi package manager configuration |
-| `App/pixi.lock` | Locked dependency versions |
-| `Arduino/simple-led-plotter.ino` | Stepper motor control firmware |
+| Directory/File                   | Description                                                               |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `App/app.py`                     | Main application entry point - launches the GUI                           |
+| `App/models.py`                  | Data classes (ConnectionState, MachineConfig, PlotterState) and constants |
+| `App/serial_handler.py`          | SerialThread for background serial communication                          |
+| `App/ui/`                        | Modular UI components package                                             |
+| `App/ui/main_window.py`          | Main window coordinator - connects all panels                             |
+| `App/ui/connection_panel.py`     | Serial port connection controls                                           |
+| `App/ui/config_panel.py`         | Machine configuration (width, height, margin)                             |
+| `App/ui/state_panel.py`          | Hardware state display (position, cables, calibration)                    |
+| `App/ui/queue_panel.py`          | Command queue visualization                                               |
+| `App/ui/command_panel.py`        | Command input controls (move, home, test, etc.)                           |
+| `App/ui/console_panel.py`        | Console output for serial communication                                   |
+| `App/pixi.toml`                  | Pixi package manager configuration                                        |
+| `App/pixi.lock`                  | Locked dependency versions                                                |
+| `Arduino/simple-led-plotter.ino` | Stepper motor control firmware                                            |
 
 **Modular Architecture:**
 The app is organized into separate, reusable UI panels that can be easily rearranged or modified independently. Each panel is self-contained with its own layout and widgets, while `main_window.py` coordinates them and handles business logic.
 
 **Key domain models/concepts:**
+
 - **Polar/Cable Kinematics**: Hanging plotter uses cable lengths from two fixed points to determine pen position (forward/inverse kinematics)
 - **Serial Protocol**: Text commands over UART (9600 baud): `M x y` (move), `H` (home), `T` (test square), `C` (calibrate), `?` (status)
 - **Coordinate System**: Cartesian (X, Y) in mm, origin at top-left motor position
@@ -148,6 +179,7 @@ Add specially formatted comments throughout the codebase for inline knowledge th
 - Add anchors for code that is: complex, important, confusing, or potentially buggy
 
 **Critical areas needing anchor comments:**
+
 - Coordinate transformation calculations
 - Serial command parsing and formatting
 - Bounds checking and safety constraints
@@ -155,6 +187,7 @@ Add specially formatted comments throughout the codebase for inline knowledge th
 - Speed/acceleration control
 
 Example:
+
 ```python
 # AIDEV-NOTE: Cable lengths calculated using polar kinematics - DO NOT modify without testing
 left_cable = math.sqrt(x**2 + y**2)
@@ -178,6 +211,7 @@ right_cable = math.sqrt((MACHINE_WIDTH - x)**2 + y**2)
 ## 7. Serial Communication Protocol
 
 **Arduino Command Format** (text-based, newline-terminated):
+
 - `M <x> <y>` - Move to absolute position in mm
 - `H` - Move to home position (center)
 - `T` - Execute test pattern (square)
@@ -187,6 +221,7 @@ right_cable = math.sqrt((MACHINE_WIDTH - x)**2 + y**2)
 **Response Format**: Human-readable text over Serial at 9600 baud
 
 **Python Implementation Pattern:**
+
 ```python
 import serial
 
@@ -202,6 +237,7 @@ class PlotterSerial:
 ```
 
 **Testing approach:**
+
 - Use Arduino Serial Monitor for direct command testing
 - Test coordinate bounds before hardware testing
 - Verify homing before complex movements
@@ -213,14 +249,17 @@ class PlotterSerial:
 The hanging plotter uses **polar kinematics** with two cable lengths determining pen position.
 
 **Physical Setup:**
+
 - Two stepper motors at fixed positions: (0, 0) and (MACHINE_WIDTH, 0)
 - Pen/gondola hangs from cables controlled by motors
 - Drawing area: 800mm × 600mm (configurable in Arduino)
 
 **Forward Kinematics** (cable lengths → XY position):
+
 - Complex, requires solving system of equations (not implemented in current firmware)
 
 **Inverse Kinematics** (XY position → cable lengths):
+
 ```python
 # From Arduino firmware (app.py will need equivalent)
 left_cable = sqrt(x² + y²)
@@ -228,12 +267,14 @@ right_cable = sqrt((MACHINE_WIDTH - x)² + y²)
 ```
 
 **Key points:**
+
 - Coordinate (0, 0) is at left motor position
 - Y-axis points downward
 - Safety margins: 50mm from edges
 - STEPS_PER_MM calibration is critical for accuracy
 
 **Testing approach:**
+
 - Test square pattern (`T` command) to verify coordinate accuracy
 - Use calibration mode (`C` command) to validate STEPS_PER_MM
 - Always home (`H`) before complex patterns
@@ -245,12 +286,14 @@ right_cable = sqrt((MACHINE_WIDTH - x)² + y²)
 **Current State:** No automated testing framework configured
 
 **Recommended Testing Strategy:**
+
 - **Unit tests**: Coordinate transformation functions, bounds checking
 - **Integration tests**: Serial communication mocking
 - **Manual GUI tests**: All button actions, serial port selection
 - **Hardware tests**: Use `T` (test square) command on actual plotter
 
 **Example test pattern:**
+
 ```python
 # Future test structure
 import pytest
@@ -270,6 +313,82 @@ def test_coordinate_bounds():
 
 ---
 
+## 9.1 Testing Status
+
+> **Current State**: Manual testing only (no automated test suite)
+
+### What Needs Testing
+
+| Area                      | Test Type   | How to Test                     |
+| ------------------------- | ----------- | ------------------------------- |
+| Coordinate constraints    | Unit        | Verify bounds at 50mm margins   |
+| Cable length calculations | Unit        | Compare to known values         |
+| Serial command formatting | Unit        | Assert output strings           |
+| Connection state machine  | Integration | Mock serial port                |
+| GUI panel interactions    | Manual      | Click through all controls      |
+| Hardware movement         | Hardware    | Use `T` test pattern on plotter |
+
+### Test Considerations for This Project
+
+1. **Kinematics testing**: Mathematical functions are deterministic and testable without hardware
+2. **Serial communication**: Use mock serial port for integration tests
+3. **GUI testing**: PyQt6 supports `QTest` for automated widget interaction
+4. **Hardware testing**: Always manual; requires physical verification
+
+### Realistic Test Structure
+
+```python
+# App/tests/test_kinematics.py
+import pytest
+import math
+from models import MachineConfig
+
+def test_cable_length_at_center():
+    """Center position should have symmetric cable lengths."""
+    config = MachineConfig()
+    x, y = config.width / 2, config.height / 2
+    left = math.sqrt(x**2 + y**2)
+    right = math.sqrt((config.width - x)**2 + y**2)
+    assert abs(left - right) < 0.001  # Symmetric at center-x
+
+def test_cable_length_at_origin():
+    """Position (0,0) should have zero left cable."""
+    config = MachineConfig()
+    left = math.sqrt(0**2 + 0**2)
+    right = math.sqrt((config.width - 0)**2 + 0**2)
+    assert left == 0.0
+    assert right == config.width
+```
+
+### Manual Test Checklist
+
+Before committing changes that affect core functionality:
+
+- [ ] Launch GUI: `pixi run python app.py`
+- [ ] Verify serial port dropdown populates
+- [ ] Test connect/disconnect cycle
+- [ ] Send `?` command, verify state panel updates
+- [ ] Queue multiple commands, verify queue display
+- [ ] Clear queue, verify list empties
+- [ ] Simulation canvas responds to position changes
+- [ ] Settings dialog saves/loads correctly
+- [ ] All dock panels toggle via View menu
+
+### Adding Automated Tests (Future)
+
+```bash
+# Add pytest to pixi.toml
+pixi add pytest pytest-qt
+
+# Create test directory
+mkdir -p App/tests
+
+# Run tests
+pixi run pytest App/tests/
+```
+
+---
+
 ## 10. Directory-Specific Documentation
 
 - Always check for `AGENTS.md` or `README.md` files in subdirectories
@@ -281,12 +400,14 @@ def test_coordinate_bounds():
 ## 11. Common Pitfalls
 
 **Hardware-Specific:**
+
 - **Exceeding movement bounds**: Always constrain X/Y before sending commands (50mm margin)
 - **Wrong STEPS_PER_MM**: Leads to inaccurate drawings; use calibration mode
 - **Serial communication errors**: Implement timeouts and error handling
 - **Cable tangling**: Homing required after power cycle; validate starting position
 
 **Software:**
+
 - **Wrong serial baud rate**: Must be 9600 (hardcoded in Arduino)
 - **Coordinate system confusion**: Remember Y-axis points downward
 - **Float precision**: Use consistent precision for coordinate calculations
@@ -294,6 +415,7 @@ def test_coordinate_bounds():
 - **Missing dependency manager**: Must use `pixi`, not pip directly
 
 **Arduino/Firmware:**
+
 - **Modifying kinematics without testing**: Can damage hardware or cause cable tangling
 - **Changing motor speed without testing**: Too fast = skipped steps, too slow = inefficient
 - **Removing safety constraints**: Could damage motors or plotter structure
@@ -305,6 +427,7 @@ def test_coordinate_bounds():
 **Current Version:** 0.1.0 (from pixi.toml)
 
 **Semantic Versioning (SemVer):**
+
 - **MAJOR (1.0.0)**: Breaking changes to serial protocol or coordinate system
 - **MINOR (0.2.0)**: New features (GUI enhancements, new drawing modes)
 - **PATCH (0.1.1)**: Bug fixes, performance improvements
@@ -316,18 +439,22 @@ Update version in `pixi.toml` when releasing.
 ## 13. Key File & Pattern References
 
 **Coordinate Transformation:**
+
 - Location: `Arduino/simple-led-plotter.ino:60-73`
 - Pattern: Pythagorean theorem for cable length calculation
 
 **Serial Command Processing:**
+
 - Location: `Arduino/simple-led-plotter.ino:252-287`
 - Pattern: Switch-case command parser with single-letter commands
 
 **Motor Control:**
+
 - Location: `Arduino/simple-led-plotter.ino:75-124`
 - Pattern: Synchronized stepping with proportional movement
 
 **Calibration & EEPROM:**
+
 - Location: `Arduino/simple-led-plotter.ino:132-218`
 - Pattern: Interactive calibration with persistent storage
 
@@ -351,15 +478,18 @@ Update version in `pixi.toml` when releasing.
 ## 15. Files to NOT Modify Without Permission
 
 **Critical Files:**
+
 - `Arduino/simple-led-plotter.ino`: Hardware control - changes could damage plotter
 - `App/pixi.lock`: Auto-generated dependency lock file
 - `App/.gitignore`, `App/.gitattributes`: Git configuration
 
 **Kinematics Functions (require validation before changes):**
+
 - Lines 60-73 in Arduino firmware: `calculateCableLengths()`, `updateCableLengths()`
 - Lines 75-124: `moveTo()` - core movement function with safety constraints
 
 **When adding new files**, follow the existing structure:
+
 - Python GUI code in `App/`
 - Arduino code stays in `Arduino/`
 - Use Pixi for Python dependencies, not manual pip installs
@@ -390,12 +520,14 @@ When responding to user instructions, follow this process:
 ## Hardware Safety Reminders
 
 **Before sending movement commands:**
+
 - ✅ Verify coordinates are within bounds (50mm margins)
 - ✅ Ensure plotter is homed after power cycle
 - ✅ Test complex patterns in simulation/visualization first
 - ✅ Keep emergency stop accessible (power off Arduino)
 
 **Never:**
+
 - ❌ Remove coordinate constraints without developer approval
 - ❌ Modify STEPS_PER_MM without re-calibration
 - ❌ Increase motor speed beyond tested limits

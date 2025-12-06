@@ -59,6 +59,47 @@ pixi run python app.py    # Launch GUI
 
 ---
 
+## Implementation Status
+
+> **Version**: 0.1.0 (early alpha) | **Last Updated**: December 2025
+
+### Core Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Serial connection management | ✅ Done | Threaded, async I/O |
+| Real-time position display | ✅ Done | Parses Arduino responses |
+| Command queue | ✅ Done | Queue/send/clear workflow |
+| Dockable UI panels | ✅ Done | Flexible layout via View menu |
+| Simulation canvas | ✅ Done | Visual position tracking |
+| Configuration persistence | ✅ Done | `~/.polarplot_config.json` |
+| Inverse kinematics (Arduino) | ✅ Done | Pythagorean calculation |
+| LED color interpolation | ✅ Done | `M x y r g b` command |
+| EEPROM calibration storage | ✅ Done | Persists STEPS_PER_MM |
+
+### Not Yet Implemented
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Forward kinematics | Low | Complex; not currently needed |
+| SVG/G-code file import | Future | Drawing file parsing |
+| Drawing preview | Future | Show path before execution |
+| Automated testing | Medium | See App/CLAUDE.md for strategy |
+| Acceleration control | Low | Currently fixed speed |
+
+### Recent Changes
+
+- **Dockable panels** - All UI panels now movable/hideable via View menu
+- **LED color interpolation** - Smooth color transitions during movement
+- **Extended M command** - Optional RGB values: `M x y [r g b]`
+
+### Development Phase
+
+**Current**: Hardware validation and basic functionality
+**Next**: Drawing features and file import
+
+---
+
 ## Component Overview
 
 ### 1. PyQt6 Desktop Application

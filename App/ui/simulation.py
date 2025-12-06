@@ -229,6 +229,11 @@ class SimulationUI(QtWidgets.QWidget):
         self.animation_speed = 100.0  # mm/s
         self.last_update_ms = 0
 
+        # Command queue execution state
+        self.queue_execution_active = False
+        self.current_queue_index = 0
+        self.queued_commands = []
+
         self.init_ui()
 
     def init_ui(self):
@@ -341,6 +346,11 @@ class SimulationUI(QtWidgets.QWidget):
             self.start_button.setEnabled(True)
             self.stop_button.setEnabled(False)
 
+            # Stop queue execution
+            if self.queue_execution_active:
+                print("Queue execution paused.")
+                self.queue_execution_active = False
+
     def reset_simulation(self):
         """Reset the simulation to home position."""
         self.stop_simulation()
@@ -348,6 +358,11 @@ class SimulationUI(QtWidgets.QWidget):
         self.target_y = self.machine_config.height / 2.0
         self.canvas.set_position(self.target_x, self.target_y)
         self.canvas.clear_trail()
+
+        # Clear queue execution state
+        self.queue_execution_active = False
+        self.current_queue_index = 0
+        self.queued_commands = []
 
     def _update_speed(self, value: int):
         """Update animation speed from slider."""
@@ -368,7 +383,8 @@ class SimulationUI(QtWidgets.QWidget):
         """
         Execute one animation frame.
 
-        AIDEV-NOTE: Smoothly interpolate position toward target at specified speed
+        AIDEV-NOTE: Smoothly interpolate position toward target at specified speed.
+        Also handles sequential command queue execution.
         """
         dt = 0.05  # 50ms timer = 0.05s per frame
 
@@ -382,6 +398,10 @@ class SimulationUI(QtWidgets.QWidget):
 
         if distance < 0.1:  # Close enough to target
             self.canvas.set_position(self.target_x, self.target_y)
+
+            # Check if we're processing a command queue
+            if self.queue_execution_active:
+                self._process_next_queued_command()
             return
 
         # Move toward target at specified speed
@@ -466,46 +486,96 @@ class SimulationUI(QtWidgets.QWidget):
         """
         Execute commands from the command queue in simulation.
 
-        Call this periodically to process queued commands.
+        AIDEV-NOTE: Initializes sequential command execution. Commands are
+        processed one at a time; the animation timer waits for gondola to
+        reach each target before moving to the next command.
         """
         print("Executing command queue...")
         if self.command_queue is None:
-            print("No command queue available.")
+            print("Command queue not set.")
             return
 
-        while not self.command_queue.is_empty():
-            self._execute_next_command()
+        all_commands = self.command_queue.get_all_commands()
+        print(f"Commands in queue: {len(all_commands)} commands")
 
-        print("Command queue execution complete.")
+        if not all_commands:
+            print("Queue is empty.")
+            return
 
-    def _execute_next_command(self):
-        """Execute the next command in the queue, if any."""
-        if (
-            self.command_queue
-            and not self.command_queue.is_empty()
-            and not self.is_running
-        ):
-            command = self.command_queue.queue_list.item(0).text()
-            print(f"Simulating command: {command}")
+        # Initialize queue processing
+        self.queued_commands = list(all_commands)  # Copy the commands
+        self.current_queue_index = 0
+        self.queue_execution_active = True
 
-            if (
-                command.startswith("G0")
-                or command.startswith("G1")
-                or command.startswith("M")
-            ):
-                print("Simulating move command")
-                parts = command.split()
-                x = self.canvas.sim_x
-                y = self.canvas.sim_y
-                for part in parts[1:]:
-                    if part.startswith("X"):
-                        x = float(part[1:])
-                    elif part.startswith("Y"):
-                        y = float(part[1:])
-                self.move_to(x, y)
-            elif command.startswith("G28"):
-                print("Simulating homing command")
-                self._move_to_home()
+        print("Starting sequential command queue execution...")
+        # Process first command immediately
+        self._process_next_queued_command()
 
-            # Remove command from queue after execution
-            self.command_queue.remove_first()
+    def _process_next_queued_command(self):
+        """
+        Process the next command in the queued commands list.
+
+        AIDEV-NOTE: Called by animation timer when gondola reaches target.
+        Automatically advances through the queue sequentially.
+        """
+        if not self.queue_execution_active:
+            return
+
+        if self.current_queue_index >= len(self.queued_commands):
+            # Queue execution complete
+            print("Command queue execution complete.")
+            self.queue_execution_active = False
+            self.current_queue_index = 0
+            self.queued_commands = []
+            return
+
+        # Execute current command
+        command = self.queued_commands[self.current_queue_index]
+        print(
+            f"Processing command {self.current_queue_index + 1}/"
+            f"{len(self.queued_commands)}: {command}"
+        )
+        self._execute_command(command)
+
+        # Advance to next command
+        self.current_queue_index += 1
+
+    def _execute_command(self, command: str):
+        """
+        Execute a single command in the simulation.
+
+        AIDEV-NOTE: Parses actual serial protocol commands (M x y, H, T, C, ?)
+        """
+        command = command.strip()
+
+        if command.startswith("M"):
+            # Move command: M x y [r g b]
+            # Format: M <x> <y> [<r> <g> <b>]
+            parts = command.split()
+            if len(parts) >= 3:
+                try:
+                    x = float(parts[1])
+                    y = float(parts[2])
+                    # RGB values (parts[3:6]) are ignored in simulation
+                    print(f"Simulating move to ({x}, {y})")
+                    self.move_to(x, y)
+                except (ValueError, IndexError) as e:
+                    print(f"Invalid move command: {command} - {e}")
+        elif command.startswith("H"):
+            # Home command
+            print("Simulating home command")
+            self._move_to_home()
+        elif command.startswith("T"):
+            # Test pattern command - execute test square
+            print("Simulating test pattern (square)")
+            # Test pattern moves to corners in sequence
+            # This will be handled by queuing multiple moves
+            pass
+        elif command.startswith("C"):
+            # Calibration command - not applicable to simulation
+            print("Calibration command ignored in simulation")
+        elif command.startswith("?"):
+            # Status query - not applicable to simulation
+            print("Status query ignored in simulation")
+        else:
+            print(f"Unknown command in simulation: {command}")

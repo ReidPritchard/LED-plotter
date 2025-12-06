@@ -70,16 +70,6 @@ class PlotterControlWindow(QMainWindow):
         """Create all panels as dockable widgets."""
         # AIDEV-NOTE: All panels are now QDockWidgets for flexible layout
 
-        # Simulation panel - Center/Top
-        self.simulation_ui = SimulationUI(
-            self.machine_config, self.plotter_state
-        )
-        self.simulation_dock = self._create_dock_widget(
-            "Simulation",
-            self.simulation_ui,
-            Qt.DockWidgetArea.TopDockWidgetArea,
-        )
-
         # State panel - Left side
         self.state_panel = StatePanel(self.plotter_state, self.machine_config)
         self.state_dock = self._create_dock_widget(
@@ -90,6 +80,18 @@ class PlotterControlWindow(QMainWindow):
         self.queue_panel = QueuePanel()
         self.queue_dock = self._create_dock_widget(
             "Queue", self.queue_panel, Qt.DockWidgetArea.RightDockWidgetArea
+        )
+
+        # Simulation panel - Center/Top
+        self.simulation_ui = SimulationUI(
+            self.machine_config,
+            self.plotter_state,
+            self.queue_panel,
+        )
+        self.simulation_dock = self._create_dock_widget(
+            "Simulation",
+            self.simulation_ui,
+            Qt.DockWidgetArea.TopDockWidgetArea,
         )
 
         # Command panel - Bottom left

@@ -50,7 +50,9 @@ class PlotterState:
 
     position_x: float = MACHINE_WIDTH / 2.0
     position_y: float = MACHINE_HEIGHT / 2.0
+
     left_cable: float = 0.0
     right_cable: float = 0.0
+
     steps_per_mm: float = 5.035
     connection: ConnectionState = ConnectionState.DISCONNECTED

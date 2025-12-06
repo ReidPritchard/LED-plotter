@@ -54,3 +54,11 @@ class QueuePanel(QGroupBox):
     def is_empty(self) -> bool:
         """Check if the queue is empty."""
         return self.queue_list.count() == 0
+
+    def get_all_commands(self) -> "list[str]":
+        """Get all commands currently in the queue display."""
+        print(self.queue_list.count())
+        return [
+            self.queue_list.item(i).text()
+            for i in range(self.queue_list.count())
+        ]

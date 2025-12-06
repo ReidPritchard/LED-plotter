@@ -2,7 +2,7 @@
 authors = ["Reid <reidpritchard99@gmail.com>"]
 channels = ["conda-forge"]
 name = "PolarPlot"
-platforms = ["osx-64"]
+platforms = ["osx-64", "linux-64"]
 version = "0.1.0"
 
 [tasks]
@@ -15,5 +15,5 @@ pyright = ">=1.1.407,<2"
 ruff = ">=0.14.6,<0.15"
 
 [pypi-dependencies]
-pyqt6 = ">=6.10.0, <7"
+pyqt6 = ">=6.9.0, <6.10"
 pyserial = ">=3.5, <4"
