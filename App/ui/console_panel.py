@@ -31,9 +31,9 @@ class ConsolePanel(QGroupBox):
         """Add a message to the console."""
         self.console.append(message)
         # Auto-scroll to bottom
-        self.console.verticalScrollBar().setValue(
-            self.console.verticalScrollBar().maximum()
-        )
+        scrollbar = self.console.verticalScrollBar()
+        if scrollbar:
+            scrollbar.setValue(scrollbar.maximum())
 
     def clear(self):
         """Clear all console output."""

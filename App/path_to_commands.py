@@ -142,7 +142,9 @@ class PathToCommandsConverter:
 
         return total
 
-    def validate_commands(self, commands: list[str]) -> tuple[bool, list[str]]:
+    def validate_commands(
+        self, commands: "list[str]"
+    ) -> "tuple[bool, list[str]]":
         """Validate all commands are within safe bounds.
 
         Args:
@@ -185,20 +187,35 @@ class PathToCommandsConverter:
                         # Validate RGB if present
                         if len(parts) >= 6:
                             try:
-                                r, g, b = int(parts[3]), int(parts[4]), int(parts[5])
-                                if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
+                                r, g, b = (
+                                    int(parts[3]),
+                                    int(parts[4]),
+                                    int(parts[5]),
+                                )
+                                if not (
+                                    0 <= r <= 255
+                                    and 0 <= g <= 255
+                                    and 0 <= b <= 255
+                                ):
                                     errors.append(
-                                        f"Command {i}: RGB values out of range (0-255)"
+                                        f"Command {i}: RGB values out of "
+                                        f"range (0-255)"
                                     )
                             except ValueError:
-                                errors.append(f"Command {i}: Invalid RGB values")
+                                errors.append(
+                                    f"Command {i}: Invalid RGB values"
+                                )
 
                     except ValueError:
-                        errors.append(f"Command {i}: Invalid coordinate format")
+                        errors.append(
+                            f"Command {i}: Invalid coordinate format"
+                        )
 
         return len(errors) == 0, errors
 
-    def optimize_path_order(self, paths: list[ColoredPath]) -> list[ColoredPath]:
+    def optimize_path_order(
+        self, paths: list[ColoredPath]
+    ) -> list[ColoredPath]:
         """Reorder paths to minimize travel distance.
 
         Uses a simple nearest-neighbor heuristic.

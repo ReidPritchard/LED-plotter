@@ -18,7 +18,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import CONFIG_FILE, ConnectionState, MachineConfig, PlotterState, ProcessedImage
+from models import (
+    CONFIG_FILE,
+    ConnectionState,
+    MachineConfig,
+    PlotterState,
+    ProcessedImage,
+)
 from serial_handler import SERIAL_AVAILABLE, SerialThread
 from ui.command_panel import CommandPanel
 from ui.console_panel import ConsolePanel
@@ -86,7 +92,9 @@ class PlotterControlWindow(QMainWindow):
         # Image import panel - Right side (tabbed with Queue)
         self.image_panel = ImagePanel(self.machine_config)
         self.image_dock = self._create_dock_widget(
-            "Image Import", self.image_panel, Qt.DockWidgetArea.RightDockWidgetArea
+            "Image Import",
+            self.image_panel,
+            Qt.DockWidgetArea.RightDockWidgetArea,
         )
 
         # Simulation panel - Center/Top
@@ -279,8 +287,8 @@ class PlotterControlWindow(QMainWindow):
 
         toolbar.addSeparator()
 
-        # Panel toggle buttons (will be populated after dock widgets are created)
-        # This is a placeholder - actual buttons added in _add_toolbar_toggles()
+        # Panel toggle buttons (populated after dock widgets created)
+        # Placeholder - actual buttons added in _add_toolbar_toggles()
 
     def _connect_signals(self):
         """Connect all UI signals to handlers."""
@@ -303,8 +311,9 @@ class PlotterControlWindow(QMainWindow):
         )
         self.command_panel.test_btn.clicked.connect(
             lambda:
-            # AIDEV-NOTE: Queue commands to draw a colorful test square with LED interpolation
-            # Each edge transitions to a different color for visual feedback
+            # AIDEV-NOTE: Queue commands to draw a colorful test
+            # square with LED interpolation. Each edge transitions to
+            # a different color for visual feedback
             self._queue_command_multiple(
                 [
                     "H",  # Home
@@ -335,7 +344,9 @@ class PlotterControlWindow(QMainWindow):
         # Image panel
         self.image_panel.processing_complete.connect(self._on_image_processed)
         self.image_panel.preview_requested.connect(self._on_preview_requested)
-        self.image_panel.add_to_queue_requested.connect(self._queue_image_commands)
+        self.image_panel.add_to_queue_requested.connect(
+            self._queue_image_commands
+        )
 
     # === Settings Dialog ===
 
@@ -358,7 +369,8 @@ class PlotterControlWindow(QMainWindow):
 
         # Show dialog and handle result
         if dialog.exec():  # User clicked OK
-            # AIDEV-NOTE: Warn if connected - changing dimensions while connected could be dangerous
+            # AIDEV-NOTE: Warn if connected - changing dimensions
+            # while connected could be dangerous
             if self.serial_thread and self.serial_thread.isRunning():
                 reply = QMessageBox.question(
                     self,
@@ -385,8 +397,10 @@ class PlotterControlWindow(QMainWindow):
             self._save_config()
 
             self.console_panel.append(
-                f"✓ Configuration applied: {self.machine_config.width:.0f}×"
-                f"{self.machine_config.height:.0f}mm, margin={self.machine_config.safe_margin:.0f}mm"
+                f"✓ Configuration applied: "
+                f"{self.machine_config.width:.0f}×"
+                f"{self.machine_config.height:.0f}mm, "
+                f"margin={self.machine_config.safe_margin:.0f}mm"
             )
 
     def _refresh_ports(self):
@@ -416,7 +430,8 @@ class PlotterControlWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Missing Dependency",
-                "pyserial is not installed.\n\nInstall with: pixi add pyserial",
+                "pyserial is not installed.\n\n"
+                "Install with: pixi add pyserial",
             )
             return
 
@@ -501,7 +516,7 @@ class PlotterControlWindow(QMainWindow):
         self.queue_panel.add_command(command)
         self.console_panel.append(f"Queued: {command}")
 
-    def _queue_command_multiple(self, commands: list[str]):
+    def _queue_command_multiple(self, commands: "list[str]"):
         """Add multiple commands to the display queue."""
         for command in commands:
             self._queue_command(command)
@@ -625,7 +640,7 @@ class PlotterControlWindow(QMainWindow):
         # Bring simulation panel to front
         self.simulation_dock.raise_()
 
-    def _queue_image_commands(self, commands: list[str]):
+    def _queue_image_commands(self, commands: "list[str]"):
         """Add image-generated commands to queue."""
         for command in commands:
             self._queue_command(command)

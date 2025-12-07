@@ -58,7 +58,9 @@ class QueuePanel(QGroupBox):
     def get_all_commands(self) -> "list[str]":
         """Get all commands currently in the queue display."""
         print(self.queue_list.count())
-        return [
-            self.queue_list.item(i).text()
-            for i in range(self.queue_list.count())
-        ]
+        commands = []
+        for i in range(self.queue_list.count()):
+            item = self.queue_list.item(i)
+            if item:
+                commands.append(item.text())
+        return commands

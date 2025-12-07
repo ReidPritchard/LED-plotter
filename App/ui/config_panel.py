@@ -118,10 +118,11 @@ class ConfigPanel(QGroupBox):
             self.width_input.value(),
             self.height_input.value(),
             self.margin_input.value(),
+            int(self.led_brightness_input.value()),
             self.led_enabled_btn.isChecked(),
-            self.led_brightness_input.value(),
             self.steps_per_mm_input.value(),
-            self.microstepping_input.value(),
+            self.machine_config.steps_per_revolution,  # Use existing value
+            int(self.microstepping_input.value()),
             self.speed_input.value(),
             self.acceleration_input.value(),
         )

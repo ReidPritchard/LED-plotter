@@ -1,9 +1,11 @@
 """Image import and processing panel for photo-to-plotter workflow."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -44,7 +46,9 @@ class ProcessingThread(QThread):
     def run(self):
         """Execute image processing in background."""
         try:
-            processor = ImageProcessor(self.machine_config, self.processing_config)
+            processor = ImageProcessor(
+                self.machine_config, self.processing_config
+            )
 
             self.progress.emit(10)
             # Load image
@@ -69,7 +73,9 @@ class ImagePanel(QGroupBox):
     preview_requested = pyqtSignal(object)  # ProcessedImage
     add_to_queue_requested = pyqtSignal(list)  # List[str] commands
 
-    def __init__(self, machine_config: MachineConfig, parent: QWidget | None = None):
+    def __init__(
+        self, machine_config: MachineConfig, parent: QWidget | None = None
+    ):
         super().__init__("Image Import", parent)
         self.machine_config = machine_config
         self.processing_config = ImageProcessingConfig()
@@ -157,11 +163,13 @@ class ImagePanel(QGroupBox):
         method_layout.addWidget(QLabel("Method:"))
 
         self.quant_method_combo = QComboBox()
-        self.quant_method_combo.addItems([
-            "K-Means (Best quality)",
-            "Median Cut (Faster)",
-            "Octree (Fastest)",
-        ])
+        self.quant_method_combo.addItems(
+            [
+                "K-Means (Best quality)",
+                "Median Cut (Faster)",
+                "Octree (Fastest)",
+            ]
+        )
         method_layout.addWidget(self.quant_method_combo)
 
         quant_layout.addLayout(method_layout)
@@ -242,7 +250,9 @@ class ImagePanel(QGroupBox):
         self.num_colors_slider.valueChanged.connect(self._on_colors_changed)
         self.simplify_slider.valueChanged.connect(self._on_simplify_changed)
         self.speckle_spin.valueChanged.connect(self._on_speckle_changed)
-        self.quant_method_combo.currentIndexChanged.connect(self._on_method_changed)
+        self.quant_method_combo.currentIndexChanged.connect(
+            self._on_method_changed
+        )
         self.process_btn.clicked.connect(self._on_process_clicked)
         self.preview_btn.clicked.connect(self._on_preview_clicked)
         self.add_queue_btn.clicked.connect(self._on_add_queue_clicked)
@@ -370,8 +380,11 @@ class ImagePanel(QGroupBox):
         self.process_btn.setEnabled(True)
         self.browse_btn.setEnabled(True)
 
+        # format error message
+        pretty_msg = error_msg.replace("\n", " ").strip()
+
         # Show error
-        self.status_label.setText(f"Error: {error_msg}")
+        self.status_label.setText(f"Error: {pretty_msg}")
 
     def _on_preview_clicked(self):
         """Request preview in simulation canvas."""

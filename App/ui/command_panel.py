@@ -43,7 +43,8 @@ class CommandPanel(QGroupBox):
         move_layout = QHBoxLayout()
         move_layout.addWidget(QLabel("Move to:"))
 
-        # AIDEV-NOTE: Coordinate inputs with bounds validation from machine_config
+        # AIDEV-NOTE: Coordinate inputs with bounds validation
+        # from machine_config
         self.move_x_input = QDoubleSpinBox()
         self.move_x_input.setRange(
             self.machine_config.safe_margin,
@@ -89,7 +90,7 @@ class CommandPanel(QGroupBox):
         layout.addLayout(custom_layout)
         self.setLayout(layout)
 
-    def get_move_coordinates(self) -> tuple[float, float]:
+    def get_move_coordinates(self) -> "tuple[float, float]":
         """Get the current move X, Y coordinates."""
         return self.move_x_input.value(), self.move_y_input.value()
 

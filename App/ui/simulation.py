@@ -424,8 +424,9 @@ class SimulationUI(QtWidgets.QWidget):
         """
         Execute one animation frame.
 
-        AIDEV-NOTE: Smoothly interpolate position toward target at specified speed.
-        Also handles sequential command queue execution.
+        AIDEV-NOTE: Smoothly interpolate position toward target
+        at specified speed. Also handles sequential command queue
+        execution.
         """
         dt = 0.05  # 50ms timer = 0.05s per frame
 

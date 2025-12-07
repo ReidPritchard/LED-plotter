@@ -56,7 +56,7 @@ class ConnectionPanel(QGroupBox):
         """Refresh the list of available serial ports."""
         self.port_combo.clear()
         if SERIAL_AVAILABLE:
-            ports = serial.tools.list_ports.comports()
+            ports = serial.tools.list_ports.comports()  # type: ignore
             for port in ports:
                 self.port_combo.addItem(
                     f"{port.device} - {port.description}", port.device

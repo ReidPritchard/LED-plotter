@@ -75,7 +75,8 @@ class ImageProcessor:
 
         Args:
             image: Input image (RGBA)
-            num_colors: Target number of colors (4-32), uses config default if None
+            num_colors: Target number of colors (4-32),
+                uses config default if None
             method: Quantization method, uses config default if None
 
         Returns:
@@ -204,6 +205,11 @@ class ImageProcessor:
         )
 
         print("Vectorization complete.")
+
+        # for debug: save SVG to file
+        with open("debug_svg_output.svg", "w") as f:
+            f.write(svg_content)
+
         return svg_content
 
     def extract_paths(self, svg_content: str) -> list[ColoredPath]:
@@ -224,11 +230,20 @@ class ImageProcessor:
             )
 
         # Parse SVG from string
-        paths, attributes = svgpathtools.svg2paths(io.StringIO(svg_content))
+        paths, attributes = svgpathtools.svg2paths(
+            io.StringIO(svg_content), False
+        )
+
+        print(f"Found {len(paths)} paths in SVG.")
 
         colored_paths = []
-        for path, attrs in zip(paths, attributes, strict=False):
-            if path.length() < 1:  # Skip very small paths
+        for path, attrs in zip(paths, attributes):
+            if (
+                path is None
+                or attrs is None
+                or path.length() is None
+                or path.length() <= 1  # Skip very short paths
+            ):
                 continue
 
             # Extract fill color
@@ -237,6 +252,7 @@ class ImageProcessor:
                 continue  # Skip paths with no fill (outlines only)
 
             # Sample points along path
+            print(f"Sampling points for path with color {color}...")
             points = self._sample_path_points(path)
             if len(points) < 2:
                 continue
@@ -244,18 +260,27 @@ class ImageProcessor:
             # Check if path is closed
             is_closed = path.isclosed() if hasattr(path, "isclosed") else False
 
-            colored_paths.append(
-                ColoredPath(
-                    points=points,
-                    color=color,
-                    is_closed=is_closed,
-                )
+            print(f"Extracted {len(points)} points for path.")
+
+            new_colored_path = ColoredPath(
+                points=points,
+                color=color,
+                is_closed=is_closed,
             )
+            print(
+                f"Added colored path with color {color} and "
+                f"{len(points)} points."
+            )
+
+            colored_paths.append(new_colored_path)
+
+        print(f"Extracted {len(colored_paths)} colored paths from SVG.")
 
         return colored_paths
 
     def _parse_color(self, attrs: dict) -> tuple[int, int, int] | None:
         """Parse color from SVG path attributes."""
+
         # Check fill attribute
         fill = attrs.get("fill", "")
 
@@ -271,6 +296,7 @@ class ImageProcessor:
 
         # Parse hex color
         if fill.startswith("#"):
+            print(f"Parsing hex color: {fill}")
             if len(fill) == 7:  # #RRGGBB
                 r = int(fill[1:3], 16)
                 g = int(fill[3:5], 16)
@@ -306,7 +332,8 @@ class ImageProcessor:
 
         # Calculate number of samples based on path length
         # More points for longer paths, but cap to avoid too many commands
-        num_samples = max(10, min(100, int(path_length / 2)))
+        # num_samples = max(10, min(200, int(path_length / 2)))
+        num_samples = max(10, int(path_length / 1))
 
         for i in range(num_samples + 1):
             t = i / num_samples
@@ -428,17 +455,22 @@ class ImageProcessor:
         image = self.load_image(file_path)
         original_width, original_height = image.size
 
-        # Quantize colors
-        print("Quantizing colors...")
-        quantized, palette = self.quantize_colors(image)
+        # # Quantize colors
+        # print("Quantizing colors...")
+        # quantized, palette = self.quantize_colors(image)
 
-        # Vectorize
-        print("Vectorizing image...")
-        svg_content = self.vectorize_image(quantized)
+        # # Vectorize
+        # print("Vectorizing image...")
+        # svg_content = self.vectorize_image(quantized)
 
-        # Extract paths
-        print("Extracting paths...")
-        paths = self.extract_paths(svg_content)
+        # # Extract paths
+        # print("Extracting paths...")
+        # paths = self.extract_paths(svg_content)
+
+        # Rather than the above approach, we will go about this differently
+        # Options: 
+
+
 
         # Scale to machine coordinates
         print("Scaling paths to machine coordinates...")
