@@ -19,6 +19,7 @@ from models import (
     ImageProcessingConfig,
     MachineConfig,
     ProcessedImage,
+    RenderStyle,
 )
 
 # Import vtracer and svgpathtools - these may not be installed yet
@@ -441,6 +442,413 @@ class ImageProcessor:
         """Count total number of commands that will be generated."""
         return sum(len(path.points) for path in paths)
 
+    def _scale_image_to_machine(
+        self, image: Image.Image
+    ) -> tuple[Image.Image, float, float, float]:
+        """Scale image to fit within machine bounds while maintaining aspect ratio.
+
+        Args:
+            image: Input PIL image
+
+        Returns:
+            Tuple of (scaled_image, scale_factor, offset_x, offset_y)
+            where offsets are in mm for centering in machine space
+
+        AIDEV-NOTE: This scales the image so that when we sample pixels,
+        pixel coordinates map directly to mm in machine space.
+        """
+        margin = self.machine_config.safe_margin
+        safe_width = self.machine_config.width - 2 * margin
+        safe_height = self.machine_config.height - 2 * margin
+
+        orig_width, orig_height = image.size
+
+        # Calculate scale to fit within safe bounds
+        scale_x = safe_width / orig_width
+        scale_y = safe_height / orig_height
+        scale = min(scale_x, scale_y)
+
+        # New dimensions in mm (and pixels, since 1 pixel = 1 mm after scaling)
+        new_width = int(orig_width * scale)
+        new_height = int(orig_height * scale)
+
+        # Resize image
+        scaled_image = image.resize(
+            (new_width, new_height), Image.Resampling.LANCZOS
+        )
+
+        # Calculate centering offsets in mm
+        offset_x = margin + (safe_width - new_width) / 2
+        offset_y = margin + (safe_height - new_height) / 2
+
+        return scaled_image, scale, offset_x, offset_y
+
+    def _get_brightness(self, image: Image.Image, x: int, y: int) -> float:
+        """Get brightness (0-1) at a pixel location.
+
+        Args:
+            image: Grayscale PIL image
+            x: X coordinate
+            y: Y coordinate
+
+        Returns:
+            Brightness value from 0 (black) to 1 (white)
+        """
+        width, height = image.size
+        if 0 <= x < width and 0 <= y < height:
+            pixel = image.getpixel((x, y))
+            return pixel / 255.0
+        return 1.0  # Default to white (no drawing) for out of bounds
+
+    def _get_color(
+        self, image: Image.Image, x: int, y: int
+    ) -> tuple[int, int, int]:
+        """Get RGB color at a pixel location.
+
+        Args:
+            image: RGB PIL image
+            x: X coordinate
+            y: Y coordinate
+
+        Returns:
+            RGB tuple (0-255 each channel)
+
+        AIDEV-NOTE: Used for sampling quantized colors to assign to paths.
+        Returns white for out-of-bounds pixels.
+        """
+        width, height = image.size
+        if 0 <= x < width and 0 <= y < height:
+            pixel = image.getpixel((x, y))
+            if isinstance(pixel, tuple):
+                return pixel[:3]  # RGB only (drop alpha if present)
+            else:
+                # Grayscale pixel, convert to RGB tuple
+                return (pixel, pixel, pixel)
+        return (255, 255, 255)  # Default to white for out of bounds
+
+    def _render_sine_waves(
+        self,
+        grayscale_image: Image.Image,
+        color_image: Image.Image,
+        offset_x: float,
+        offset_y: float,
+    ) -> list[ColoredPath]:
+        """Render image as horizontal sine waves with brightness-based modulation.
+
+        Style 1: Starting from the left, draw sine waves that increase
+        in frequency and amplitude based on image darkness. Creates separate
+        paths for each contiguous color region.
+
+        Args:
+            grayscale_image: Grayscale PIL image for brightness sampling
+            color_image: Quantized RGB PIL image for color sampling
+            offset_x: X offset in mm for centering
+            offset_y: Y offset in mm for centering
+
+        Returns:
+            List of ColoredPath objects representing the sine waves
+
+        AIDEV-NOTE: Darker areas produce higher amplitude and frequency waves.
+        Paths are split when colors change along a scan line, creating
+        separate ColoredPath objects for each color segment.
+        """
+        config = self.processing_config
+        width, height = grayscale_image.size
+
+        paths = []
+        line_spacing = config.wave_line_spacing
+        y = 0.0
+
+        while y < height:
+            x = 0.0
+            step = 0.5  # Sample every 0.5mm for smooth curves
+            current_color = None
+            current_points = []
+
+            while x < width:
+                # Get brightness at this position (0=black, 1=white)
+                brightness = self._get_brightness(
+                    grayscale_image, int(x), int(y)
+                )
+                darkness = 1.0 - brightness  # Invert: dark = high value
+
+                # Sample color from quantized color image
+                sampled_color = self._get_color(color_image, int(x), int(y))
+
+                # If color changed, save current path segment and start new one
+                if sampled_color != current_color:
+                    # Save previous segment if it has enough points
+                    if current_points and len(current_points) >= 2:
+                        paths.append(
+                            ColoredPath(
+                                points=current_points,
+                                color=current_color,  # type: ignore
+                                is_closed=False,
+                            )
+                        )
+                    # Start new segment
+                    current_points = []
+                    current_color = sampled_color
+
+                # Calculate amplitude and frequency based on darkness
+                amplitude = config.wave_min_amplitude + darkness * (
+                    config.wave_max_amplitude - config.wave_min_amplitude
+                )
+                frequency = config.wave_min_frequency + darkness * (
+                    config.wave_max_frequency - config.wave_min_frequency
+                )
+
+                # Calculate sine wave offset
+                wave_y = amplitude * math.sin(2 * math.pi * frequency * x)
+
+                # Convert to machine coordinates
+                machine_x = x + offset_x
+                machine_y = y + wave_y + offset_y
+
+                current_points.append((machine_x, machine_y))
+                x += step
+
+            # Don't forget to save the last segment of the line
+            if current_points and len(current_points) >= 2:
+                paths.append(
+                    ColoredPath(
+                        points=current_points,
+                        color=current_color,  # type: ignore
+                        is_closed=False,
+                    )
+                )
+
+            y += line_spacing
+
+        return paths
+
+    def _render_stipples(
+        self,
+        image: Image.Image,
+        offset_x: float,
+        offset_y: float,
+    ) -> list[ColoredPath]:
+        """Render image as stipples (dots) based on brightness.
+
+        Style 2: Convert to dots where darker areas have more/larger dots.
+
+        Args:
+            image: Grayscale PIL image (scaled to machine size)
+            offset_x: X offset in mm for centering
+            offset_y: Y offset in mm for centering
+
+        Returns:
+            List of ColoredPath objects representing circles/dots
+
+        AIDEV-NOTE: Uses grid-based sampling with jitter. Darker pixels
+        produce larger dots. Each dot is a circular path.
+        """
+        config = self.processing_config
+        width, height = image.size
+
+        paths = []
+        max_radius = config.stipple_max_radius
+        min_radius = config.stipple_min_radius
+        grid_size = max_radius * 2.5  # Grid spacing based on max dot size
+
+        y = grid_size / 2
+        while y < height:
+            x = grid_size / 2
+            while x < width:
+                brightness = self._get_brightness(image, int(x), int(y))
+                darkness = 1.0 - brightness
+
+                # Skip very light areas
+                if darkness < 0.1:
+                    x += grid_size
+                    continue
+
+                # Calculate radius based on darkness
+                radius = min_radius + darkness * (max_radius - min_radius)
+
+                # Apply density factor - randomly skip some dots
+                if darkness < config.stipple_density:
+                    # Use position-based pseudo-random to be deterministic
+                    if (int(x * 7 + y * 13) % 100) / 100.0 > darkness:
+                        x += grid_size
+                        continue
+
+                # Generate circle points
+                circle_points = []
+                num_points = config.stipple_points_per_circle
+                for i in range(num_points + 1):
+                    angle = 2 * math.pi * i / num_points
+                    cx = x + radius * math.cos(angle) + offset_x
+                    cy = y + radius * math.sin(angle) + offset_y
+                    circle_points.append((cx, cy))
+
+                if len(circle_points) >= 3:
+                    paths.append(
+                        ColoredPath(
+                            points=circle_points,
+                            color=(0, 0, 0),
+                            is_closed=True,
+                        )
+                    )
+
+                x += grid_size
+            y += grid_size
+
+        return paths
+
+    def _render_hatching(
+        self,
+        image: Image.Image,
+        offset_x: float,
+        offset_y: float,
+    ) -> list[ColoredPath]:
+        """Render image as hatching lines based on brightness.
+
+        Style 3: Convert to parallel lines where darker areas have
+        closer line spacing.
+
+        Args:
+            image: Grayscale PIL image (scaled to machine size)
+            offset_x: X offset in mm for centering
+            offset_y: Y offset in mm for centering
+
+        Returns:
+            List of ColoredPath objects representing hatching lines
+
+        AIDEV-NOTE: Lines are drawn at the configured angle. Spacing
+        varies based on local brightness - darker = tighter spacing.
+        """
+        config = self.processing_config
+        width, height = image.size
+
+        paths = []
+        angle_rad = math.radians(config.hatch_angle)
+
+        # Calculate line direction and perpendicular
+        dx = math.cos(angle_rad)
+        dy = math.sin(angle_rad)
+        # Perpendicular direction for spacing
+        px = -dy
+        py = dx
+
+        # Calculate the range we need to cover with parallel lines
+        # Diagonal of the image gives max distance
+        diagonal = math.sqrt(width**2 + height**2)
+
+        # Start position offset (perpendicular to line direction)
+        current_offset = -diagonal / 2
+        max_offset = diagonal / 2
+
+        while current_offset < max_offset:
+            # Sample brightness along this potential line to determine spacing
+            # Use the center of the image area this line would cross
+            sample_x = width / 2 + current_offset * px
+            sample_y = height / 2 + current_offset * py
+
+            brightness = self._get_brightness(
+                image, int(sample_x), int(sample_y)
+            )
+            darkness = 1.0 - brightness
+
+            # Skip very light areas
+            if darkness < 0.05:
+                current_offset += config.hatch_max_spacing
+                continue
+
+            # Calculate spacing based on brightness
+            spacing = config.hatch_max_spacing - darkness * (
+                config.hatch_max_spacing - config.hatch_min_spacing
+            )
+
+            # Find line intersection with image bounds
+            # Line passes through point: (width/2 + current_offset * px, height/2 + current_offset * py)
+            # Direction: (dx, dy)
+            center_x = width / 2 + current_offset * px
+            center_y = height / 2 + current_offset * py
+
+            # Find where line enters and exits the image rectangle
+            line_points = self._clip_line_to_rect(
+                center_x, center_y, dx, dy, 0, 0, width, height
+            )
+
+            if line_points and len(line_points) == 2:
+                (x1, y1), (x2, y2) = line_points
+                # Convert to machine coordinates
+                machine_points = [
+                    (x1 + offset_x, y1 + offset_y),
+                    (x2 + offset_x, y2 + offset_y),
+                ]
+                paths.append(
+                    ColoredPath(
+                        points=machine_points,
+                        color=(0, 0, 0),
+                        is_closed=False,
+                    )
+                )
+
+            current_offset += spacing
+
+        return paths
+
+    def _clip_line_to_rect(
+        self,
+        cx: float,
+        cy: float,
+        dx: float,
+        dy: float,
+        x_min: float,
+        y_min: float,
+        x_max: float,
+        y_max: float,
+    ) -> list[tuple[float, float]] | None:
+        """Clip an infinite line to a rectangle using parametric intersection.
+
+        Args:
+            cx, cy: Point on the line
+            dx, dy: Direction vector of the line
+            x_min, y_min, x_max, y_max: Rectangle bounds
+
+        Returns:
+            List of two intersection points, or None if line doesn't intersect
+        """
+        t_min = float("-inf")
+        t_max = float("inf")
+
+        # Check intersection with vertical edges
+        if abs(dx) > 1e-10:
+            t1 = (x_min - cx) / dx
+            t2 = (x_max - cx) / dx
+            if t1 > t2:
+                t1, t2 = t2, t1
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+        else:
+            # Line is vertical
+            if cx < x_min or cx > x_max:
+                return None
+
+        # Check intersection with horizontal edges
+        if abs(dy) > 1e-10:
+            t1 = (y_min - cy) / dy
+            t2 = (y_max - cy) / dy
+            if t1 > t2:
+                t1, t2 = t2, t1
+            t_min = max(t_min, t1)
+            t_max = min(t_max, t2)
+        else:
+            # Line is horizontal
+            if cy < y_min or cy > y_max:
+                return None
+
+        if t_min > t_max:
+            return None
+
+        # Calculate intersection points
+        p1 = (cx + t_min * dx, cy + t_min * dy)
+        p2 = (cx + t_max * dx, cy + t_max * dy)
+
+        return [p1, p2]
+
     def process(self, file_path: str | Path) -> ProcessedImage:
         """Execute complete image processing pipeline.
 
@@ -449,44 +857,102 @@ class ImageProcessor:
 
         Returns:
             ProcessedImage with all extracted paths and metadata
+
+        AIDEV-NOTE: Pipeline steps:
+        1. Load and convert to grayscale
+        2. Scale to fit machine bounds (1 pixel = 1 mm)
+        3. Render using selected style (sine waves, stipples, or hatching)
+        4. Paths are already in machine coordinates after rendering
         """
         # Load image
         print("Loading image...")
         image = self.load_image(file_path)
         original_width, original_height = image.size
-
-        # # Quantize colors
-        # print("Quantizing colors...")
-        # quantized, palette = self.quantize_colors(image)
-
-        # # Vectorize
-        # print("Vectorizing image...")
-        # svg_content = self.vectorize_image(quantized)
-
-        # # Extract paths
-        # print("Extracting paths...")
-        # paths = self.extract_paths(svg_content)
-
-        # Rather than the above approach, we will go about this differently
-        # Options: 
-
-
-
-        # Scale to machine coordinates
-        print("Scaling paths to machine coordinates...")
-        paths, scale, offset_x, offset_y = self.scale_paths_to_machine(
-            paths, original_width, original_height
+        print(
+            f"Original image size: {original_width}x{original_height} pixels"
         )
 
-        # Simplify paths
-        print("Simplifying paths...")
-        paths = self.simplify_paths(paths)
+        # Step 1: Scale image to fit within machine bounds while maintaining aspect ratio
+        print("Scaling image to machine bounds...")
+        scaled_image, scale, offset_x, offset_y = self._scale_image_to_machine(
+            image
+        )
+        scaled_width, scaled_height = scaled_image.size
+        print(f"Scaled image size: {scaled_width}x{scaled_height} mm")
+        print(
+            f"Scale factor: {scale:.4f}, offset: ({offset_x:.1f}, {offset_y:.1f}) mm"
+        )
 
-        # Calculate statistics
+        # Quantize colors to a limited palette
+        print(f"Quantizing to {self.processing_config.num_colors} colors...")
+        quantized_image, palette = self.quantize_colors(scaled_image)
+        print(f"Palette: {palette}")
+
+        # Convert to grayscale for brightness-based rendering
+        # (use quantized image for consistency)
+        grayscale_image = quantized_image.convert("L")
+
+        # Step 2: Convert to paths using the selected rendering style
+        # Currently only sine waves (style 1) is implemented
+        style = self.processing_config.render_style
+        print(f"Rendering with style: {style.value}")
+
+        if style == RenderStyle.SINE_WAVES:
+            # Style 1: Sine waves with brightness-based amplitude/frequency
+            # Pass both grayscale (for brightness) and color (for segmentation)
+            paths = self._render_sine_waves(
+                grayscale_image=grayscale_image,
+                color_image=quantized_image,
+                offset_x=offset_x,
+                offset_y=offset_y,
+            )
+        elif style == RenderStyle.STIPPLES:
+            # Style 2: Not yet implemented
+            raise NotImplementedError("Stipple rendering not yet implemented")
+        elif style == RenderStyle.HATCHING:
+            # Style 3: Not yet implemented
+            raise NotImplementedError("Hatching rendering not yet implemented")
+        else:
+            # Default to sine waves
+            paths = self._render_sine_waves(
+                grayscale_image, quantized_image, offset_x, offset_y
+            )
+
+        # Step 3: Paths are already in machine coordinates (mm)
+        # with colors assigned from the quantized palette
+
+        # debug: save paths to SVG with colors
+        with open("debug_rendered_paths.svg", "w") as f:
+            f.write(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                f'width="{self.machine_config.width}mm" '
+                f'height="{self.machine_config.height}mm" '
+                'viewBox="0 0 '
+                f"{self.machine_config.width} "
+                f'{self.machine_config.height}">\n'
+            )
+            for path in paths:
+                path_data = "M " + " L ".join(
+                    f"{x:.2f} {y:.2f}" for x, y in path.points
+                )
+                # Convert RGB tuple to hex color
+                r, g, b = path.color
+                hex_color = f"#{r:02x}{g:02x}{b:02x}"
+                f.write(
+                    f'<path d="{path_data}" '
+                    f'stroke="{hex_color}" fill="none" stroke-width="0.1"/>\n'
+                )
+            f.write("</svg>\n")
+            print("Saved debug_rendered_paths.svg for inspection.")
+
+        # Step 4: Calculate statistics for the generated paths
         print("Calculating statistics...")
         total_length = self.calculate_total_length(paths)
         command_count = self.count_commands(paths)
+        print(f"Total path length: {total_length:.1f} mm")
+        print(f"Total commands: {command_count}")
 
+        # Palette already extracted from quantize_colors() above
         return ProcessedImage(
             paths=paths,
             palette=palette,

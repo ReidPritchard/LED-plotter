@@ -22,6 +22,17 @@ class ConnectionState(Enum):
     ERROR = "Error"
 
 
+class RenderStyle(Enum):
+    """Image-to-path rendering styles.
+
+    AIDEV-NOTE: Each style converts image brightness to drawable paths differently.
+    """
+
+    SINE_WAVES = "sine_waves"  # Horizontal waves with brightness-based amplitude/frequency
+    STIPPLES = "stipples"  # Dots distributed based on brightness
+    HATCHING = "hatching"  # Parallel lines with brightness-based density
+
+
 @dataclass
 class MachineConfig:
     """Machine physical configuration settings."""
@@ -78,6 +89,9 @@ class ColoredPath:
 class ImageProcessingConfig:
     """Configuration for image vectorization and color quantization."""
 
+    # Rendering style
+    render_style: RenderStyle = RenderStyle.SINE_WAVES
+
     # Color quantization
     num_colors: int = 8  # Number of colors to quantize to (4-32)
     quantization_method: str = "kmeans"  # "kmeans", "median_cut", "octree"
@@ -89,6 +103,13 @@ class ImageProcessingConfig:
     # Path simplification
     simplify_tolerance: float = 0.5  # mm tolerance for Douglas-Peucker
     min_segment_length: float = 1.0  # Minimum segment length in mm
+
+    # Sine wave style settings
+    wave_line_spacing: float = 5.0  # Spacing between wave lines in mm
+    wave_min_amplitude: float = 0.5  # Minimum wave amplitude in mm
+    wave_max_amplitude: float = 4.0  # Maximum wave amplitude in mm
+    wave_min_frequency: float = 0.5  # Minimum wave frequency (cycles per mm)
+    wave_max_frequency: float = 3.0  # Maximum wave frequency (cycles per mm)
 
 
 @dataclass
