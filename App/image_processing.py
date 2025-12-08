@@ -71,7 +71,7 @@ class ImageProcessor:
         image: Image.Image,
         num_colors: int | None = None,
         method: str | None = None,
-    ) -> tuple[Image.Image, list[tuple[int, int, int]]]:
+    ) -> "tuple[Image.Image, list[tuple[int, int, int]]]":
         """Reduce image to a limited color palette.
 
         Args:
@@ -110,7 +110,7 @@ class ImageProcessor:
         self,
         image: Image.Image,
         num_colors: int,
-    ) -> tuple[Image.Image, list[tuple[int, int, int]]]:
+    ) -> "tuple[Image.Image, list[tuple[int, int, int]]]":
         """K-means color quantization implementation.
 
         AIDEV-NOTE: More accurate than PIL's built-in quantization for
@@ -146,7 +146,7 @@ class ImageProcessor:
         image: Image.Image,
         num_colors: int,
         method: Image.Quantize,
-    ) -> tuple[Image.Image, list[tuple[int, int, int]]]:
+    ) -> "tuple[Image.Image, list[tuple[int, int, int]]]":
         """Pillow-based color quantization."""
         # Quantize returns a palette image
         quantized = image.quantize(colors=num_colors, method=method)
@@ -166,54 +166,7 @@ class ImageProcessor:
 
         return rgb_image, palette
 
-    def vectorize_image(self, image: Image.Image) -> str:
-        """Convert raster image to SVG using VTracer.
-
-        Args:
-            image: Quantized PIL Image (RGB mode)
-
-        Returns:
-            SVG string content
-
-        Raises:
-            RuntimeError: If vtracer is not available
-
-        AIDEV-NOTE: VTracer handles the actual raster-to-vector conversion.
-        We pre-quantize colors to control the number of output regions.
-        """
-        if vtracer is None:
-            raise RuntimeError("vtracer is not installed. Run: pixi install")
-
-        # Convert PIL image to bytes
-        img_bytes = io.BytesIO()
-        print("Converting image to PNG bytes for vtracer...")
-        image.save(img_bytes, format="PNG")
-        img_bytes.seek(0)
-
-        # Use vtracer to convert
-        print("Running vtracer for vectorization...")
-        svg_content = vtracer.convert_raw_image_to_svg(
-            img_bytes.read(),
-            img_format="png",
-            colormode="color",
-            filter_speckle=self.processing_config.filter_speckle,
-            color_precision=self.processing_config.color_precision,
-            corner_threshold=60,
-            length_threshold=4.0,
-            max_iterations=10,
-            splice_threshold=45,
-            path_precision=3,
-        )
-
-        print("Vectorization complete.")
-
-        # for debug: save SVG to file
-        with open("debug_svg_output.svg", "w") as f:
-            f.write(svg_content)
-
-        return svg_content
-
-    def extract_paths(self, svg_content: str) -> list[ColoredPath]:
+    def extract_paths(self, svg_content: str) -> "list[ColoredPath]":
         """Parse SVG and extract paths with colors.
 
         Args:
@@ -322,7 +275,7 @@ class ImageProcessor:
 
         return None
 
-    def _sample_path_points(self, path) -> list[tuple[float, float]]:
+    def _sample_path_points(self, path) -> "list[tuple[float, float]]":
         """Sample points along an SVG path.
 
         AIDEV-NOTE: svgpathtools uses complex numbers for coordinates.
@@ -351,10 +304,10 @@ class ImageProcessor:
 
     def scale_paths_to_machine(
         self,
-        paths: list[ColoredPath],
+        paths: "list[ColoredPath]",
         image_width: int,
         image_height: int,
-    ) -> tuple[list[ColoredPath], float, float, float]:
+    ) -> "tuple[list[ColoredPath], float, float, float]":
         """Scale paths from pixel coordinates to machine mm coordinates.
 
         Args:
@@ -400,35 +353,7 @@ class ImageProcessor:
 
         return scaled_paths, scale, offset_x, offset_y
 
-    def simplify_paths(
-        self,
-        paths: list[ColoredPath],
-        tolerance: float | None = None,
-    ) -> list[ColoredPath]:
-        """Simplify paths using Douglas-Peucker algorithm.
-
-        AIDEV-NOTE: Reduces number of points while preserving shape.
-        Critical for reducing command count and execution time.
-        """
-        tolerance = tolerance or self.processing_config.simplify_tolerance
-
-        simplified_paths = []
-        for path in paths:
-            simplified_points = douglas_peucker(path.points, tolerance)
-
-            # Only keep paths with at least 2 points
-            if len(simplified_points) >= 2:
-                simplified_paths.append(
-                    ColoredPath(
-                        points=simplified_points,
-                        color=path.color,
-                        is_closed=path.is_closed,
-                    )
-                )
-
-        return simplified_paths
-
-    def calculate_total_length(self, paths: list[ColoredPath]) -> float:
+    def calculate_total_length(self, paths: "list[ColoredPath]") -> float:
         """Calculate total path length in mm."""
         total = 0.0
         for path in paths:
@@ -438,13 +363,13 @@ class ImageProcessor:
                 total += math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         return total
 
-    def count_commands(self, paths: list[ColoredPath]) -> int:
+    def count_commands(self, paths: "list[ColoredPath]") -> int:
         """Count total number of commands that will be generated."""
         return sum(len(path.points) for path in paths)
 
     def _scale_image_to_machine(
         self, image: Image.Image
-    ) -> tuple[Image.Image, float, float, float]:
+    ) -> "tuple[Image.Image, float, float, float]":
         """Scale image to fit within machine bounds while maintaining aspect ratio.
 
         Args:
@@ -497,12 +422,19 @@ class ImageProcessor:
         width, height = image.size
         if 0 <= x < width and 0 <= y < height:
             pixel = image.getpixel((x, y))
-            return pixel / 255.0
+            if isinstance(pixel, tuple):
+                # RGB image, convert to brightness
+                r, g, b = pixel[:3]
+                brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+                return brightness
+            elif isinstance(pixel, int) or isinstance(pixel, float):
+                # Grayscale pixel
+                return pixel / 255.0
         return 1.0  # Default to white (no drawing) for out of bounds
 
     def _get_color(
         self, image: Image.Image, x: int, y: int
-    ) -> tuple[int, int, int]:
+    ) -> "tuple[int, int, int]":
         """Get RGB color at a pixel location.
 
         Args:
@@ -526,108 +458,70 @@ class ImageProcessor:
                 return (pixel, pixel, pixel)
         return (255, 255, 255)  # Default to white for out of bounds
 
-    def _render_sine_waves(
+    def _get_average_color_circle(
         self,
-        grayscale_image: Image.Image,
-        color_image: Image.Image,
-        offset_x: float,
-        offset_y: float,
-    ) -> list[ColoredPath]:
-        """Render image as horizontal sine waves with brightness-based modulation.
-
-        Style 1: Starting from the left, draw sine waves that increase
-        in frequency and amplitude based on image darkness. Creates separate
-        paths for each contiguous color region.
+        image: Image.Image,
+        center_x: int,
+        center_y: int,
+        radius: int,
+    ) -> "tuple[int, int, int]":
+        """Get average RGB color within a circular area.
 
         Args:
-            grayscale_image: Grayscale PIL image for brightness sampling
-            color_image: Quantized RGB PIL image for color sampling
-            offset_x: X offset in mm for centering
-            offset_y: Y offset in mm for centering
+            image: RGB PIL image
+            center_x: Center X coordinate
+            center_y: Center Y coordinate
+            radius: Radius of circle
 
         Returns:
-            List of ColoredPath objects representing the sine waves
+            Average RGB color tuple (0-255 each channel)
 
-        AIDEV-NOTE: Darker areas produce higher amplitude and frequency waves.
-        Paths are split when colors change along a scan line, creating
-        separate ColoredPath objects for each color segment.
+        AIDEV-NOTE: Samples pixels within the circle to compute average.
         """
-        config = self.processing_config
-        width, height = grayscale_image.size
+        width, height = image.size
+        r_squared = radius * radius
+        total_r = total_g = total_b = count = 0
 
-        paths = []
-        line_spacing = config.wave_line_spacing
-        y = 0.0
+        for y in range(center_y - radius, center_y + radius + 1):
+            for x in range(center_x - radius, center_x + radius + 1):
+                if 0 <= x < width and 0 <= y < height:
+                    dx = x - center_x
+                    dy = y - center_y
+                    if dx * dx + dy * dy <= r_squared:
+                        pixel = image.getpixel((x, y))
+                        if isinstance(pixel, tuple):
+                            r, g, b = pixel[:3]
+                        else:
+                            r = g = b = pixel
 
-        while y < height:
-            x = 0.0
-            step = 0.5  # Sample every 0.5mm for smooth curves
-            current_color = None
-            current_points = []
+                        if r is None or g is None or b is None:
+                            continue
 
-            while x < width:
-                # Get brightness at this position (0=black, 1=white)
-                brightness = self._get_brightness(
-                    grayscale_image, int(x), int(y)
-                )
-                darkness = 1.0 - brightness  # Invert: dark = high value
+                        r = int(r)
+                        g = int(g)
+                        b = int(b)
 
-                # Sample color from quantized color image
-                sampled_color = self._get_color(color_image, int(x), int(y))
+                        total_r += r
+                        total_g += g
+                        total_b += b
+                        count += 1
 
-                # If color changed, save current path segment and start new one
-                if sampled_color != current_color:
-                    # Save previous segment if it has enough points
-                    if current_points and len(current_points) >= 2:
-                        paths.append(
-                            ColoredPath(
-                                points=current_points,
-                                color=current_color,  # type: ignore
-                                is_closed=False,
-                            )
-                        )
-                    # Start new segment
-                    current_points = []
-                    current_color = sampled_color
+        if count == 0:
+            return (255, 255, 255)  # Default to white
 
-                # Calculate amplitude and frequency based on darkness
-                amplitude = config.wave_min_amplitude + darkness * (
-                    config.wave_max_amplitude - config.wave_min_amplitude
-                )
-                frequency = config.wave_min_frequency + darkness * (
-                    config.wave_max_frequency - config.wave_min_frequency
-                )
-
-                # Calculate sine wave offset
-                wave_y = amplitude * math.sin(2 * math.pi * frequency * x)
-
-                # Convert to machine coordinates
-                machine_x = x + offset_x
-                machine_y = y + wave_y + offset_y
-
-                current_points.append((machine_x, machine_y))
-                x += step
-
-            # Don't forget to save the last segment of the line
-            if current_points and len(current_points) >= 2:
-                paths.append(
-                    ColoredPath(
-                        points=current_points,
-                        color=current_color,  # type: ignore
-                        is_closed=False,
-                    )
-                )
-
-            y += line_spacing
-
-        return paths
+        return (
+            total_r // count,
+            total_g // count,
+            total_b // count,
+        )
 
     def _render_stipples(
         self,
         image: Image.Image,
         offset_x: float,
         offset_y: float,
-    ) -> list[ColoredPath]:
+        invert: bool = False,
+    ) -> "list[ColoredPath]":
         """Render image as stipples (dots) based on brightness.
 
         Style 2: Convert to dots where darker areas have more/larger dots.
@@ -636,12 +530,10 @@ class ImageProcessor:
             image: Grayscale PIL image (scaled to machine size)
             offset_x: X offset in mm for centering
             offset_y: Y offset in mm for centering
+            invert: More dots in lighter areas if True (correct mapping for LED)
 
         Returns:
             List of ColoredPath objects representing circles/dots
-
-        AIDEV-NOTE: Uses grid-based sampling with jitter. Darker pixels
-        produce larger dots. Each dot is a circular path.
         """
         config = self.processing_config
         width, height = image.size
@@ -651,12 +543,23 @@ class ImageProcessor:
         min_radius = config.stipple_min_radius
         grid_size = max_radius * 2.5  # Grid spacing based on max dot size
 
+        # Precompute values for efficiency
+        num_points = config.stipple_points_per_circle
+        get_brightness = self._get_brightness
+        get_avg_color = self._get_average_color_circle
+        append_path = paths.append
+        int_x = int
+        int_y = int
+
         y = grid_size / 2
         while y < height:
             x = grid_size / 2
             while x < width:
-                brightness = self._get_brightness(image, int(x), int(y))
+                brightness = get_brightness(image, int_x(x), int_y(y))
                 darkness = 1.0 - brightness
+
+                if invert:
+                    darkness = 1.0 - darkness
 
                 # Skip very light areas
                 if darkness < 0.1:
@@ -669,24 +572,36 @@ class ImageProcessor:
                 # Apply density factor - randomly skip some dots
                 if darkness < config.stipple_density:
                     # Use position-based pseudo-random to be deterministic
-                    if (int(x * 7 + y * 13) % 100) / 100.0 > darkness:
+                    if (int_x(x * 7 + y * 13) % 100) / 100.0 > darkness:
                         x += grid_size
                         continue
 
-                # Generate circle points
-                circle_points = []
-                num_points = config.stipple_points_per_circle
-                for i in range(num_points + 1):
-                    angle = 2 * math.pi * i / num_points
-                    cx = x + radius * math.cos(angle) + offset_x
-                    cy = y + radius * math.sin(angle) + offset_y
-                    circle_points.append((cx, cy))
+                # Generate circle points using list comprehension
+                circle_points = [
+                    (
+                        x + radius * math.cos(angle) + offset_x,
+                        y + radius * math.sin(angle) + offset_y,
+                    )
+                    for angle in (
+                        2 * math.pi * i / num_points
+                        for i in range(num_points + 1)
+                    )
+                ]
 
-                if len(circle_points) >= 3:
-                    paths.append(
+                # get the color of the stipple
+                average_color = get_avg_color(
+                    image, int_x(x), int_y(y), int(radius)
+                )
+
+                # If not inverted, invert all the colors
+                if not invert and len(average_color) == 3:
+                    average_color = tuple(255 - c for c in average_color)
+
+                if len(circle_points) >= 3 and len(average_color) == 3:
+                    append_path(
                         ColoredPath(
                             points=circle_points,
-                            color=(0, 0, 0),
+                            color=average_color,
                             is_closed=True,
                         )
                     )
@@ -701,7 +616,7 @@ class ImageProcessor:
         image: Image.Image,
         offset_x: float,
         offset_y: float,
-    ) -> list[ColoredPath]:
+    ) -> "list[ColoredPath]":
         """Render image as hatching lines based on brightness.
 
         Style 3: Convert to parallel lines where darker areas have
@@ -790,65 +705,6 @@ class ImageProcessor:
 
         return paths
 
-    def _clip_line_to_rect(
-        self,
-        cx: float,
-        cy: float,
-        dx: float,
-        dy: float,
-        x_min: float,
-        y_min: float,
-        x_max: float,
-        y_max: float,
-    ) -> list[tuple[float, float]] | None:
-        """Clip an infinite line to a rectangle using parametric intersection.
-
-        Args:
-            cx, cy: Point on the line
-            dx, dy: Direction vector of the line
-            x_min, y_min, x_max, y_max: Rectangle bounds
-
-        Returns:
-            List of two intersection points, or None if line doesn't intersect
-        """
-        t_min = float("-inf")
-        t_max = float("inf")
-
-        # Check intersection with vertical edges
-        if abs(dx) > 1e-10:
-            t1 = (x_min - cx) / dx
-            t2 = (x_max - cx) / dx
-            if t1 > t2:
-                t1, t2 = t2, t1
-            t_min = max(t_min, t1)
-            t_max = min(t_max, t2)
-        else:
-            # Line is vertical
-            if cx < x_min or cx > x_max:
-                return None
-
-        # Check intersection with horizontal edges
-        if abs(dy) > 1e-10:
-            t1 = (y_min - cy) / dy
-            t2 = (y_max - cy) / dy
-            if t1 > t2:
-                t1, t2 = t2, t1
-            t_min = max(t_min, t1)
-            t_max = min(t_max, t2)
-        else:
-            # Line is horizontal
-            if cy < y_min or cy > y_max:
-                return None
-
-        if t_min > t_max:
-            return None
-
-        # Calculate intersection points
-        p1 = (cx + t_min * dx, cy + t_min * dy)
-        p2 = (cx + t_max * dx, cy + t_max * dy)
-
-        return [p1, p2]
-
     def process(self, file_path: str | Path) -> ProcessedImage:
         """Execute complete image processing pipeline.
 
@@ -857,182 +713,118 @@ class ImageProcessor:
 
         Returns:
             ProcessedImage with all extracted paths and metadata
-
-        AIDEV-NOTE: Pipeline steps:
-        1. Load and convert to grayscale
-        2. Scale to fit machine bounds (1 pixel = 1 mm)
-        3. Render using selected style (sine waves, stipples, or hatching)
-        4. Paths are already in machine coordinates after rendering
         """
-        # Load image
+        print("Starting image processing pipeline...")
+
         print("Loading image...")
+        # Load image
         image = self.load_image(file_path)
-        original_width, original_height = image.size
+        orig_width, orig_height = image.size
+        print(f"Loaded image with size: {orig_width}x{orig_height} pixels.")
+
+        print("Scaling image to fit machine...")
+        # Scale down image to both fit machine and reduce processing load
+        scaled_image, scale_factor, offset_x, offset_y = (
+            self._scale_image_to_machine(image)
+        )
         print(
-            f"Original image size: {original_width}x{original_height} pixels"
+            f"Scaled image to {scaled_image.size[0]}x{scaled_image.size[1]} "
+            f"pixels for machine fit."
         )
 
-        # Step 1: Scale image to fit within machine bounds while maintaining aspect ratio
-        print("Scaling image to machine bounds...")
-        scaled_image, scale, offset_x, offset_y = self._scale_image_to_machine(
-            image
-        )
-        scaled_width, scaled_height = scaled_image.size
-        print(f"Scaled image size: {scaled_width}x{scaled_height} mm")
-        print(
-            f"Scale factor: {scale:.4f}, offset: ({offset_x:.1f}, {offset_y:.1f}) mm"
-        )
-
-        # Quantize colors to a limited palette
-        print(f"Quantizing to {self.processing_config.num_colors} colors...")
-        quantized_image, palette = self.quantize_colors(scaled_image)
-        print(f"Palette: {palette}")
-
-        # Convert to grayscale for brightness-based rendering
-        # (use quantized image for consistency)
-        grayscale_image = quantized_image.convert("L")
-
-        # Step 2: Convert to paths using the selected rendering style
-        # Currently only sine waves (style 1) is implemented
+        # Check rendering style
         style = self.processing_config.render_style
-        print(f"Rendering with style: {style.value}")
-
-        if style == RenderStyle.SINE_WAVES:
-            # Style 1: Sine waves with brightness-based amplitude/frequency
-            # Pass both grayscale (for brightness) and color (for segmentation)
-            paths = self._render_sine_waves(
-                grayscale_image=grayscale_image,
-                color_image=quantized_image,
-                offset_x=offset_x,
-                offset_y=offset_y,
+        if style == RenderStyle.STIPPLES:
+            print("Rendering stipple style...")
+            paths = self._render_stipples(
+                scaled_image,
+                offset_x,
+                offset_y,
+                invert=self.processing_config.stipple_invert,
             )
-        elif style == RenderStyle.STIPPLES:
-            # Style 2: Not yet implemented
-            raise NotImplementedError("Stipple rendering not yet implemented")
         elif style == RenderStyle.HATCHING:
-            # Style 3: Not yet implemented
-            raise NotImplementedError("Hatching rendering not yet implemented")
+            print("Rendering hatching style...")
+            # Convert to grayscale for brightness sampling
+            gray_image = scaled_image.convert("L")
+            paths = self._render_hatching(gray_image, offset_x, offset_y)
         else:
-            # Default to sine waves
-            paths = self._render_sine_waves(
-                grayscale_image, quantized_image, offset_x, offset_y
+            # just error for now
+            raise NotImplementedError(
+                f"Render style {style} not implemented in this snippet."
             )
 
-        # Step 3: Paths are already in machine coordinates (mm)
-        # with colors assigned from the quantized palette
+        # DEBUG: Save intermediate SVG for inspection
+        debug_svg = colored_paths_to_svg(
+            paths,
+            svg_width=int(self.machine_config.width),
+            svg_height=int(self.machine_config.height),
+        )
+        with open("debug_output.svg", "w") as f:
+            f.write(debug_svg)
 
-        # debug: save paths to SVG with colors
-        with open("debug_rendered_paths.svg", "w") as f:
-            f.write(
-                '<svg xmlns="http://www.w3.org/2000/svg" '
-                f'width="{self.machine_config.width}mm" '
-                f'height="{self.machine_config.height}mm" '
-                'viewBox="0 0 '
-                f"{self.machine_config.width} "
-                f'{self.machine_config.height}">\n'
-            )
-            for path in paths:
-                path_data = "M " + " L ".join(
-                    f"{x:.2f} {y:.2f}" for x, y in path.points
-                )
-                # Convert RGB tuple to hex color
-                r, g, b = path.color
-                hex_color = f"#{r:02x}{g:02x}{b:02x}"
-                f.write(
-                    f'<path d="{path_data}" '
-                    f'stroke="{hex_color}" fill="none" stroke-width="0.1"/>\n'
-                )
-            f.write("</svg>\n")
-            print("Saved debug_rendered_paths.svg for inspection.")
+        print("Saved debug_output.svg for inspection.")
 
-        # Step 4: Calculate statistics for the generated paths
-        print("Calculating statistics...")
+        # If the style is stipple, the commands should be to move to the
+        # center of each stipple and display it's color (brightness based on
+        # the stipple size)
+
+        # Return processed image data
+        print("Image processing complete.")
+        print(f"Total paths extracted: {len(paths)}")
         total_length = self.calculate_total_length(paths)
+        print(f"Total path length: {total_length:.2f} mm")
         command_count = self.count_commands(paths)
-        print(f"Total path length: {total_length:.1f} mm")
-        print(f"Total commands: {command_count}")
+        print(f"Total commands to be generated: {command_count}")
 
-        # Palette already extracted from quantize_colors() above
         return ProcessedImage(
             paths=paths,
-            palette=palette,
-            scale_factor=scale,
+            palette=[],
+            render_style=style,
+            scale_factor=scale_factor,
             offset_x=offset_x,
             offset_y=offset_y,
-            original_width=original_width,
-            original_height=original_height,
+            original_width=orig_width,
+            original_height=orig_height,
             total_path_length=total_length,
             command_count=command_count,
         )
 
 
-def douglas_peucker(
-    points: list[tuple[float, float]],
-    tolerance: float,
-) -> list[tuple[float, float]]:
-    """Douglas-Peucker path simplification algorithm.
-
-    AIDEV-NOTE: Reduces point count while maintaining shape within
-    tolerance. Essential for reducing plotter command count.
+def colored_paths_to_svg(
+    colored_paths: "list[ColoredPath]",
+    svg_width: int,
+    svg_height: int,
+) -> str:
+    """Convert colored paths to SVG string.
 
     Args:
-        points: List of (x, y) coordinates
-        tolerance: Maximum distance tolerance in mm
+        colored_paths: List of ColoredPath objects
+        svg_width: Width of SVG canvas
+        svg_height: Height of SVG canvas
 
     Returns:
-        Simplified list of points
+        SVG content as string
     """
-    if len(points) <= 2:
-        return points
+    svg_elements = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{svg_width}" height="{svg_height}">'
+    ]
 
-    # Find the point with the maximum distance from the line
-    # between the first and last points
-    start = points[0]
-    end = points[-1]
+    for path in colored_paths:
+        # Convert color to hex
+        r, g, b = path.color
+        color_hex = f"#{r:02x}{g:02x}{b:02x}"
 
-    max_dist = 0.0
-    max_idx = 0
+        # Create path data
+        path_data = "M " + " L ".join(
+            f"{x:.2f} {y:.2f}" for x, y in path.points
+        )
+        if path.is_closed:
+            path_data += " Z"
 
-    for i in range(1, len(points) - 1):
-        dist = perpendicular_distance(points[i], start, end)
-        if dist > max_dist:
-            max_dist = dist
-            max_idx = i
+        svg_elements.append(
+            f'<path d="{path_data}" fill="{color_hex}" stroke="none"/>'
+        )
 
-    # If max distance is greater than tolerance, recursively simplify
-    if max_dist > tolerance:
-        # Recursive call
-        left = douglas_peucker(points[: max_idx + 1], tolerance)
-        right = douglas_peucker(points[max_idx:], tolerance)
-
-        # Combine results (avoiding duplicate at junction)
-        return left[:-1] + right
-    else:
-        # All points between start and end can be removed
-        return [start, end]
-
-
-def perpendicular_distance(
-    point: tuple[float, float],
-    line_start: tuple[float, float],
-    line_end: tuple[float, float],
-) -> float:
-    """Calculate perpendicular distance from point to line segment."""
-    x, y = point
-    x1, y1 = line_start
-    x2, y2 = line_end
-
-    # Handle case where line is actually a point
-    dx = x2 - x1
-    dy = y2 - y1
-    line_length_sq = dx * dx + dy * dy
-
-    if line_length_sq == 0:
-        return math.sqrt((x - x1) ** 2 + (y - y1) ** 2)
-
-    # Calculate perpendicular distance using cross product formula
-    # |AB × AC| / |AB|
-    numerator = abs(dy * x - dx * y + x2 * y1 - y2 * x1)
-    denominator = math.sqrt(line_length_sq)
-
-    return numerator / denominator
+    svg_elements.append("</svg>")
+    return "\n".join(svg_elements)

@@ -80,8 +80,8 @@ class ColoredPath:
     Points are in mm coordinates (machine space). Color is RGB (0-255).
     """
 
-    points: list[tuple[float, float]]  # (x, y) coordinates in mm
-    color: tuple[int, int, int]  # RGB color (0-255)
+    points: "list[tuple[float, float]]"  # (x, y) coordinates in mm
+    color: "tuple[int, int, int]"  # RGB color (0-255)
     is_closed: bool = False  # Whether path forms a closed loop
 
 
@@ -90,7 +90,7 @@ class ImageProcessingConfig:
     """Configuration for image vectorization and color quantization."""
 
     # Rendering style
-    render_style: RenderStyle = RenderStyle.SINE_WAVES
+    render_style: RenderStyle = RenderStyle.STIPPLES
 
     # Color quantization
     num_colors: int = 8  # Number of colors to quantize to (4-32)
@@ -111,16 +111,29 @@ class ImageProcessingConfig:
     wave_min_frequency: float = 0.5  # Minimum wave frequency (cycles per mm)
     wave_max_frequency: float = 3.0  # Maximum wave frequency (cycles per mm)
 
+    # Stipples style settings
+    stipple_density: float = 0.1  # Dots per mm²
+    stipple_max_radius: float = 3.0  # Maximum dot radius in mm
+    stipple_min_radius: float = 0.15  # Minimum dot radius in mm
+    stipple_points_per_circle: int = 8  # Points per stipple circle
+
+    # Should stipples be used to represent light areas instead of dark?
+    # think black background with white dots
+    stipple_invert: bool = False
+
 
 @dataclass
 class ProcessedImage:
     """Result of image processing pipeline."""
 
     # Extracted paths with colors
-    paths: list[ColoredPath]
+    paths: "list[ColoredPath]"
 
     # Color palette extracted from image
-    palette: list[tuple[int, int, int]]
+    palette: "list[tuple[int, int, int]]"
+
+    # Style of rendering used
+    render_style: RenderStyle
 
     # Scaling applied to fit machine bounds
     scale_factor: float = 1.0

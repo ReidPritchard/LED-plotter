@@ -25,7 +25,7 @@ from models import (
     PlotterState,
     ProcessedImage,
 )
-from serial_handler import SERIAL_AVAILABLE, SerialThread
+from serial_handler import SerialThread
 from ui.command_panel import CommandPanel
 from ui.console_panel import ConsolePanel
 from ui.image_panel import ImagePanel
@@ -74,16 +74,14 @@ class PlotterControlWindow(QMainWindow):
         self.view_actions = {}
 
     def _create_dock_widgets(self):
-        """Create all panels as dockable widgets."""
-        # AIDEV-NOTE: All panels are now QDockWidgets for flexible layout
-
+        """Create all panels as dockable widgets in a compact layout."""
         # State panel - Left side
         self.state_panel = StatePanel(self.plotter_state, self.machine_config)
         self.state_dock = self._create_dock_widget(
             "State", self.state_panel, Qt.DockWidgetArea.LeftDockWidgetArea
         )
 
-        # Queue panel - Right side
+        # Queue panel - Right side (tabbed with Image Import)
         self.queue_panel = QueuePanel()
         self.queue_dock = self._create_dock_widget(
             "Queue", self.queue_panel, Qt.DockWidgetArea.RightDockWidgetArea
@@ -109,7 +107,7 @@ class PlotterControlWindow(QMainWindow):
             Qt.DockWidgetArea.TopDockWidgetArea,
         )
 
-        # Command panel - Bottom left
+        # Command panel - Bottom (tabbed with Console)
         self.command_panel = CommandPanel(self.machine_config)
         self.command_dock = self._create_dock_widget(
             "Commands",
@@ -117,7 +115,7 @@ class PlotterControlWindow(QMainWindow):
             Qt.DockWidgetArea.BottomDockWidgetArea,
         )
 
-        # Console panel - Bottom right
+        # Console panel - Bottom (tabbed with Commands)
         self.console_panel = ConsolePanel()
         self.console_dock = self._create_dock_widget(
             "Console",
@@ -125,13 +123,13 @@ class PlotterControlWindow(QMainWindow):
             Qt.DockWidgetArea.BottomDockWidgetArea,
         )
 
-        # Tabify console with commands (they'll be in tabs at the bottom)
+        # Tabify bottom panels for compactness
         self.tabifyDockWidget(self.command_dock, self.console_dock)
 
-        # Tabify image panel with queue (on the right side)
+        # Tabify right panels for compactness
         self.tabifyDockWidget(self.queue_dock, self.image_dock)
 
-        # Set initial visibility
+        # Hide state panel for compact view, show others
         self.simulation_dock.setVisible(True)
         self.state_dock.setVisible(False)
         self.queue_dock.setVisible(True)
@@ -426,15 +424,6 @@ class PlotterControlWindow(QMainWindow):
 
     def _connect(self):
         """Establish serial connection."""
-        if not SERIAL_AVAILABLE:
-            QMessageBox.warning(
-                self,
-                "Missing Dependency",
-                "pyserial is not installed.\n\n"
-                "Install with: pixi add pyserial",
-            )
-            return
-
         port = self.port_combo.currentData()
         if not port:
             QMessageBox.warning(
@@ -514,7 +503,7 @@ class PlotterControlWindow(QMainWindow):
         """Add command to the display queue."""
         self.command_queue.append(command)
         self.queue_panel.add_command(command)
-        self.console_panel.append(f"Queued: {command}")
+        # self.console_panel.append(f"Queued: {command}")
 
     def _queue_command_multiple(self, commands: "list[str]"):
         """Add multiple commands to the display queue."""
@@ -561,7 +550,17 @@ class PlotterControlWindow(QMainWindow):
         self._send_command(command)
 
     def _send_all_in_queue(self):
-        """Send all queued commands."""
+        """Send all queued commands with flow control."""
+        count = len(self.command_queue)
+        if count == 0:
+            return
+
+        # AIDEV-NOTE: Flow control is now handled by SerialThread ACK protocol
+        # Commands are sent one at a time, waiting for Arduino acknowledgment
+        self.console_panel.append(
+            f"📤 Sending {count} commands (flow-controlled, may take time)..."
+        )
+
         while self.command_queue:
             self._send_next_in_queue()
 

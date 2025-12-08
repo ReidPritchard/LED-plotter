@@ -32,6 +32,9 @@ class SimulationCanvas(QtWidgets.QWidget):
         self.preview_paths: List[ColoredPath] = []
         self.show_preview = True
 
+        # AIDEV-NOTE: LED color state - updates from M x y r g b commands
+        self.led_color = (255, 100, 0)  # Default orange
+
     def set_position(self, x: float, y: float):
         """Update the simulated gondola position."""
         self.sim_x = x
@@ -57,6 +60,11 @@ class SimulationCanvas(QtWidgets.QWidget):
     def clear_preview_paths(self):
         """Clear preview paths."""
         self.preview_paths = []
+        self.update()
+
+    def set_led_color(self, r: int, g: int, b: int):
+        """Update the LED color for gondola visualization."""
+        self.led_color = (r, g, b)
         self.update()
 
     def _world_to_screen(self, x: float, y: float) -> Tuple[float, float]:
@@ -222,10 +230,15 @@ class SimulationCanvas(QtWidgets.QWidget):
 
                 painter.drawPath(path)
 
-        # Draw gondola/pen holder
+        # Draw gondola/LED holder with current LED color
+        # AIDEV-NOTE: Gondola color reflects LED state from M x y r g b commands
         gondola_radius = 6
-        painter.setBrush(QBrush(QColor(255, 100, 0)))
-        painter.setPen(QPen(QColor(200, 80, 0), 2))
+        r, g, b = self.led_color
+        painter.setBrush(QBrush(QColor(r, g, b)))
+        # Darker border (80% of LED color)
+        painter.setPen(
+            QPen(QColor(int(r * 0.8), int(g * 0.8), int(b * 0.8)), 2)
+        )
         painter.drawEllipse(
             int(gondola_pos[0] - gondola_radius),
             int(gondola_pos[1] - gondola_radius),
@@ -267,7 +280,7 @@ class SimulationUI(QtWidgets.QWidget):
         # Animation parameters
         self.target_x = machine_config.width / 2.0
         self.target_y = machine_config.height / 2.0
-        self.animation_speed = 100.0  # mm/s
+        self.animation_speed = 200.0  # mm/s
         self.last_update_ms = 0
 
         # Command queue execution state
@@ -317,9 +330,9 @@ class SimulationUI(QtWidgets.QWidget):
         speed_layout = QtWidgets.QHBoxLayout()
         speed_layout.addWidget(QtWidgets.QLabel("Speed:"))
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setMinimum(10)
-        self.speed_slider.setMaximum(500)
-        self.speed_slider.setValue(100)
+        self.speed_slider.setMinimum(50)
+        self.speed_slider.setMaximum(1000)
+        self.speed_slider.setValue(200)
         self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.speed_slider.setTickInterval(50)
         speed_layout.addWidget(self.speed_slider)
@@ -598,8 +611,18 @@ class SimulationUI(QtWidgets.QWidget):
                 try:
                     x = float(parts[1])
                     y = float(parts[2])
-                    # RGB values (parts[3:6]) are ignored in simulation
-                    print(f"Simulating move to ({x}, {y})")
+                    # RGB values (parts[3:6])
+                    if len(parts) >= 6:
+                        r = int(parts[3])
+                        g = int(parts[4])
+                        b = int(parts[5])
+                        print(
+                            f"Simulating move to ({x}, {y}) with LED color ({r}, {g}, {b})"
+                        )
+                        self.canvas.set_led_color(r, g, b)
+                    else:
+                        print(f"Simulating move to ({x}, {y})")
+
                     self.move_to(x, y)
                 except (ValueError, IndexError) as e:
                     print(f"Invalid move command: {command} - {e}")
@@ -631,3 +654,7 @@ class SimulationUI(QtWidgets.QWidget):
     def clear_preview_paths(self):
         """Clear image preview paths."""
         self.canvas.clear_preview_paths()
+
+    def set_led_color(self, r: int, g: int, b: int):
+        """Set LED color for gondola visualization."""
+        self.canvas.set_led_color(r, g, b)

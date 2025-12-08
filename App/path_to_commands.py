@@ -6,7 +6,7 @@ Arduino plotter. Commands follow the format: M x y [r g b]
 
 import math
 
-from models import ColoredPath, MachineConfig
+from models import ColoredPath, MachineConfig, RenderStyle
 
 
 class PathToCommandsConverter:
@@ -46,7 +46,8 @@ class PathToCommandsConverter:
 
     def paths_to_commands(
         self,
-        paths: list[ColoredPath],
+        paths: "list[ColoredPath]",
+        processing_style: RenderStyle | None = None,
         include_color: bool = True,
         add_home_start: bool = True,
         add_home_end: bool = True,
@@ -72,9 +73,30 @@ class PathToCommandsConverter:
             commands.append("H")
 
         # Convert each path
-        for path in paths:
-            path_commands = self.path_to_commands(path, include_color)
-            commands.extend(path_commands)
+        if processing_style is RenderStyle.STIPPLES:
+            # For stipples, we only want to move to the
+            # center of each path (circle)
+            for path in paths:
+                if not path.points:
+                    continue
+                # Calculate center point
+                xs = [p[0] for p in path.points]
+                ys = [p[1] for p in path.points]
+                center_x = sum(xs) / len(xs)
+                center_y = sum(ys) / len(ys)
+
+                r, g, b = path.color
+
+                # Move to the center point
+                # without drawing (rgb == 0,0,0)
+                # then draw the stipple point by setting color
+                # then turn off color again
+                commands.append(f"M {center_x:.1f} {center_y:.1f} 0 0 0")
+                commands.append(f"M {center_x:.1f} {center_y:.1f} {r} {g} {b}")
+        else:
+            for path in paths:
+                path_commands = self.path_to_commands(path, include_color)
+                commands.extend(path_commands)
 
         # Optional home at end
         if add_home_end:

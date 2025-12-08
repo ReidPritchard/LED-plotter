@@ -15,13 +15,17 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSlider,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from image_processing import ImageProcessor
-from models import ImageProcessingConfig, MachineConfig, ProcessedImage
+from models import (
+    ImageProcessingConfig,
+    MachineConfig,
+    ProcessedImage,
+    RenderStyle,
+)
 from path_to_commands import PathToCommandsConverter
 
 
@@ -182,28 +186,23 @@ class ImagePanel(QGroupBox):
         options_group = QGroupBox("Vectorization Options")
         options_layout = QVBoxLayout()
 
-        # Filter speckle
-        speckle_layout = QHBoxLayout()
-        speckle_layout.addWidget(QLabel("Min region size:"))
-        self.speckle_spin = QSpinBox()
-        self.speckle_spin.setRange(1, 20)
-        self.speckle_spin.setValue(4)
-        self.speckle_spin.setSuffix(" px")
-        speckle_layout.addWidget(self.speckle_spin)
-        speckle_layout.addStretch()
-        options_layout.addLayout(speckle_layout)
+        # Stylization options (stipple, hatching, etc.)
+        style_layout = QHBoxLayout()
+        style_layout.addWidget(QLabel("Render Style:"))
+        self.render_style_combo = QComboBox()
+        self.render_style_combo.addItems(
+            ["Stipples", "Hatching", "Sine Waves"]
+        )
+        style_layout.addWidget(self.render_style_combo)
+        options_layout.addLayout(style_layout)
 
-        # Path simplification
-        simplify_layout = QHBoxLayout()
-        simplify_layout.addWidget(QLabel("Path simplification:"))
-        self.simplify_slider = QSlider(Qt.Orientation.Horizontal)
-        self.simplify_slider.setRange(1, 50)  # 0.1mm to 5.0mm
-        self.simplify_slider.setValue(5)  # 0.5mm default
-        simplify_layout.addWidget(self.simplify_slider)
-        self.simplify_label = QLabel("0.5 mm")
-        self.simplify_label.setMinimumWidth(50)
-        simplify_layout.addWidget(self.simplify_label)
-        options_layout.addLayout(simplify_layout)
+        # TODO: Add ImageProcessingConfig setting bindings
+        # might be best to create a pop-up dialog for advanced
+        # settings to avoid cluttering the main panel.
+        # Also displayed settings should be dependent on selected style.
+        #
+        # processing_config = self.processing_config
+        # style_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         options_group.setLayout(options_layout)
         parent_layout.addWidget(options_group)
@@ -248,10 +247,21 @@ class ImagePanel(QGroupBox):
         """Connect internal signals to handlers."""
         self.browse_btn.clicked.connect(self._on_browse_clicked)
         self.num_colors_slider.valueChanged.connect(self._on_colors_changed)
-        self.simplify_slider.valueChanged.connect(self._on_simplify_changed)
-        self.speckle_spin.valueChanged.connect(self._on_speckle_changed)
+        # self.simplify_slider.valueChanged.connect(self._on_simplify_changed)
+        # self.speckle_spin.valueChanged.connect(self._on_speckle_changed)
         self.quant_method_combo.currentIndexChanged.connect(
             self._on_method_changed
+        )
+        self.render_style_combo.currentIndexChanged.connect(
+            lambda index: setattr(
+                self.processing_config,
+                "render_style",
+                [
+                    RenderStyle.STIPPLES,
+                    RenderStyle.HATCHING,
+                    RenderStyle.SINE_WAVES,
+                ][index],
+            )
         )
         self.process_btn.clicked.connect(self._on_process_clicked)
         self.preview_btn.clicked.connect(self._on_preview_clicked)
@@ -401,10 +411,16 @@ class ImagePanel(QGroupBox):
         converter = PathToCommandsConverter(self.machine_config)
         commands = converter.paths_to_commands(
             self.processed_result.paths,
+            processing_style=self.processed_result.render_style,
             include_color=True,
             add_home_start=True,
             add_home_end=True,
         )
+
+        # Save commands to file (for debugging)
+        with open("debug_commands.txt", "w") as f:
+            for cmd in commands:
+                f.write(cmd + "\n")
 
         # Validate commands
         valid, errors = converter.validate_commands(commands)
