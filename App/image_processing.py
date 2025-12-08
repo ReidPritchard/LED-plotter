@@ -393,6 +393,10 @@ class ImageProcessor:
         scale_y = safe_height / orig_height
         scale = min(scale_x, scale_y)
 
+        # if scale is greater than 1, we don't want to upscale
+        if scale > 7.0:
+            scale = 7.0
+
         # New dimensions in mm (and pixels, since 1 pixel = 1 mm after scaling)
         new_width = int(orig_width * scale)
         new_height = int(orig_height * scale)
@@ -596,6 +600,11 @@ class ImageProcessor:
                 # If not inverted, invert all the colors
                 if not invert and len(average_color) == 3:
                     average_color = tuple(255 - c for c in average_color)
+
+                # Scale the color by darkness to make lighter dots for lighter areas
+                average_color = tuple(
+                    max(0, min(255, int(c * darkness))) for c in average_color
+                )
 
                 if len(circle_points) >= 3 and len(average_color) == 3:
                     append_path(

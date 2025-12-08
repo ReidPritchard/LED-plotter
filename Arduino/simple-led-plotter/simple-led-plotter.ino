@@ -17,7 +17,7 @@ AF_Stepper leftMotor(200, 1);   // M1 & M2
 AF_Stepper rightMotor(200, 2);  // M3 & M4
 
 // Plotter dimensions (in mm)
-const float MACHINE_WIDTH = 920.0;   // Distance between motors
+const float MACHINE_WIDTH = 935.0;   // Distance between motors
 const float MACHINE_HEIGHT = 600.0;  // Height of drawing area
 float STEPS_PER_MM = 5.035;          // Steps per mm (calibrate this!)
 
@@ -100,6 +100,7 @@ void setup() {
   Serial.println("  H - Home");
   Serial.println("  C - Calibrate");
   Serial.println("  ? - Status");
+  Serial.println("OK");
 }
 
 // ===== MAIN LOOP =====

@@ -93,6 +93,7 @@ class PathToCommandsConverter:
                 # then turn off color again
                 commands.append(f"M {center_x:.1f} {center_y:.1f} 0 0 0")
                 commands.append(f"M {center_x:.1f} {center_y:.1f} {r} {g} {b}")
+                commands.append(f"M {center_x:.1f} {center_y:.1f} 0 0 0")
         else:
             for path in paths:
                 path_commands = self.path_to_commands(path, include_color)
