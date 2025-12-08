@@ -73,6 +73,8 @@ LED-plotter/
 
 #### Results - Long Exposure LED Plotter Output
 
+Fun fact, it's currently outputting upside-down and inverted!
+
 ![LED Plotter Output 1](docs/CC-led-plotter-output.jpg)
 
 ![LED Plotter Output 2](docs/CC-led-plotter-output-2.jpg)
@@ -80,6 +82,10 @@ LED-plotter/
 ![LED Plotter Output 3](docs/CC-led-plotter-output-3.jpg)
 
 ![LED Plotter Output 4](docs/CC-led-plotter-output-4.jpg)
+
+The image that was attempted to be drawn:
+
+![Target Image](docs/rat-profile.jpg)
 
 ### Videos
 
