@@ -67,8 +67,6 @@ LED-plotter/
 
 ![LED Soldering](docs/led-soldering.png)
 
-![LED Test](docs/led-test.png)
-
 ![Nearly Final Setup](docs/nearly-final-setup.png)
 
 ![Final Setup](docs/final-setup.png)
