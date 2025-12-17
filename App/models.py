@@ -121,6 +121,13 @@ class ImageProcessingConfig:
     # think black background with white dots
     stipple_invert: bool = False
 
+    # Hatching style settings
+    hatching_line_spacing_dark: float = 2.0  # Line spacing in dark areas in mm
+    hatching_line_spacing_light: float = (
+        10.0  # Line spacing in light areas in mm
+    )
+    hatching_angle: float = 45.0  # Angle of hatching lines in degrees
+
 
 @dataclass
 class ProcessedImage:
