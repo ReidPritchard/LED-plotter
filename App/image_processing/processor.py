@@ -17,7 +17,7 @@ from models import (
 )
 
 from .quantization import quantize_colors
-from .rendering import render_hatching, render_stipples
+from .rendering import render_cross_hatch, render_hatching, render_stipples
 from .svg_parser import colored_paths_to_svg, extract_paths
 from .utils import (
     calculate_total_length,
@@ -160,6 +160,11 @@ class ImageProcessor:
         elif style == RenderStyle.HATCHING:
             print("Rendering hatching style...")
             paths = render_hatching(
+                scaled_image, offset_x, offset_y, self.processing_config
+            )
+        elif style == RenderStyle.CROSS_HATCH:
+            print("Rendering cross-hatch style...")
+            paths = render_cross_hatch(
                 scaled_image, offset_x, offset_y, self.processing_config
             )
         else:

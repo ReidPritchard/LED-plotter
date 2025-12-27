@@ -31,6 +31,7 @@ class RenderStyle(Enum):
     SINE_WAVES = "sine_waves"  # Horizontal waves with brightness-based amplitude/frequency
     STIPPLES = "stipples"  # Dots distributed based on brightness
     HATCHING = "hatching"  # Parallel lines with brightness-based density
+    CROSS_HATCH = "cross_hatch"  # Multiple hatch angles, progressive layers by darkness
 
 
 @dataclass
@@ -127,6 +128,22 @@ class ImageProcessingConfig:
         10.0  # Line spacing in light areas in mm
     )
     hatching_angle: float = 45.0  # Angle of hatching lines in degrees
+    hatching_segment_max_length: float = (
+        30.0  # Max segment length in dark areas (mm)
+    )
+    hatching_segment_min_length: float = (
+        5.0  # Min segment length in light areas (mm)
+    )
+    hatching_segment_gap: float = 3.0  # Gap between segments (mm)
+
+    # Cross-hatch style settings (progressive layers)
+    cross_hatch_max_angles: int = 4  # Maximum hatch directions (2-4)
+    cross_hatch_base_angle: float = 45.0  # Starting angle in degrees (default: diagonal)
+    cross_hatch_line_spacing_dark: float = 2.0  # Spacing in darkest areas (mm)
+    cross_hatch_line_spacing_light: float = 15.0  # Spacing in lightest areas (mm)
+    cross_hatch_segment_max_length: float = 50.0  # Max segment length (mm)
+    cross_hatch_segment_min_length: float = 5.0  # Min segment length (mm)
+    cross_hatch_segment_gap: float = 2.0  # Gap between segments (mm)
 
 
 @dataclass

@@ -177,12 +177,20 @@ def colored_paths_to_svg(
         color_hex = f"#{r:02x}{g:02x}{b:02x}"
 
         # Create path data
-        path_data = "M " + " L ".join(f"{x:.2f} {y:.2f}" for x, y in path.points)
+        path_data = "M " + " L ".join(
+            f"{x:.2f} {y:.2f}" for x, y in path.points
+        )
+
+        stroke_style = "none"
+
         if path.is_closed:
             path_data += " Z"
+        else:
+            # if open, add a stroke to make it visible
+            stroke_style = color_hex
 
         svg_elements.append(
-            f'<path d="{path_data}" fill="{color_hex}" stroke="none"/>'
+            f'<path d="{path_data}" fill="{color_hex}" stroke="{stroke_style}" />'
         )
 
     svg_elements.append("</svg>")
