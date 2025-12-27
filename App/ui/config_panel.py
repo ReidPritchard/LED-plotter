@@ -15,7 +15,7 @@ class ConfigPanel(QGroupBox):
     """Panel for machine dimension and margin configuration."""
 
     def __init__(self, machine_config: MachineConfig, parent=None):
-        super().__init__("Machine Configuration", parent)
+        super().__init__(None, parent)
         self.machine_config = machine_config
         self._setup_ui()
 

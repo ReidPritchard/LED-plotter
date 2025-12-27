@@ -13,7 +13,7 @@ class QueuePanel(QGroupBox):
     """Panel for visualizing and managing the command queue."""
 
     def __init__(self, parent=None):
-        super().__init__("Command Queue", parent)
+        super().__init__(None, parent)
         self._setup_ui()
 
     def _setup_ui(self):

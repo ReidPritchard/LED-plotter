@@ -17,7 +17,7 @@ class CommandPanel(QGroupBox):
     """Panel for command input and quick actions."""
 
     def __init__(self, machine_config: MachineConfig, parent=None):
-        super().__init__("Commands", parent)
+        super().__init__(None, parent)
         self.machine_config = machine_config
         self._setup_ui()
 

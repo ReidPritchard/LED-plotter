@@ -14,7 +14,7 @@ class StatePanel(QGroupBox):
         machine_config: MachineConfig,
         parent=None,
     ):
-        super().__init__("Hardware State", parent)
+        super().__init__(None, parent)
         self.plotter_state = plotter_state
         self.machine_config = machine_config
         self._setup_ui()

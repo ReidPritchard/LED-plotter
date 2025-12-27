@@ -150,7 +150,7 @@ def sample_path_points(path) -> "list[tuple[float, float]]":
 
 
 def colored_paths_to_svg(
-    colored_paths: "list[ColoredPath]",
+    colored_paths: list[ColoredPath],
     svg_width: int,
     svg_height: int,
 ) -> str:

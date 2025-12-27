@@ -23,7 +23,7 @@ class ConnectionPanel(QGroupBox):
     """Panel for managing serial port connections."""
 
     def __init__(self, parent=None):
-        super().__init__("Serial Connection", parent)
+        super().__init__(None, parent)
         self._setup_ui()
 
     def _setup_ui(self):

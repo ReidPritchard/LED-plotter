@@ -23,14 +23,11 @@ from models import (
     ProcessedImage,
 )
 from serial_handler import SerialThread
-from ui.command_panel import CommandPanel
 from ui.console_panel import ConsolePanel
-from ui.image_panel import ImagePanel
-from ui.queue_panel import QueuePanel
 from ui.settings_dialog import SettingsDialog
-from ui.styles import FONTS, StatusColors
-from ui.simulation import SimulationUI
 from ui.state_panel import StatePanel
+from ui.styles import FONTS, StatusColors
+from ui.workflow import CentralWorkflowWidget, WorkflowStep
 
 
 class PlotterControlWindow(QMainWindow):
@@ -55,6 +52,10 @@ class PlotterControlWindow(QMainWindow):
         """Initialize the user interface."""
         self._create_menu_bar()
         self._create_toolbar()
+
+        # AIDEV-NOTE: Central workflow widget replaces the old dock-based UI
+        # for the main workflow (Image, Preview, Connect, Send)
+        self._create_central_workflow()
         self._create_dock_widgets()
 
     def _create_menu_bar(self):
@@ -70,70 +71,47 @@ class PlotterControlWindow(QMainWindow):
         # These actions will be created after dock widgets are set up
         self.view_actions = {}
 
-    def _create_dock_widgets(self):
-        """Create all panels as dockable widgets in a compact layout."""
-        # State panel - Left side
-        self.state_panel = StatePanel(self.plotter_state, self.machine_config)
-        self.state_dock = self._create_dock_widget(
-            "State", self.state_panel, Qt.DockWidgetArea.LeftDockWidgetArea
-        )
-
-        # Queue panel - Right side (tabbed with Image Import)
-        self.queue_panel = QueuePanel()
-        self.queue_dock = self._create_dock_widget(
-            "Queue", self.queue_panel, Qt.DockWidgetArea.RightDockWidgetArea
-        )
-
-        # Image import panel - Right side (tabbed with Queue)
-        self.image_panel = ImagePanel(self.machine_config)
-        self.image_dock = self._create_dock_widget(
-            "Image Import",
-            self.image_panel,
-            Qt.DockWidgetArea.RightDockWidgetArea,
-        )
-
-        # Simulation panel - Center/Top
-        self.simulation_ui = SimulationUI(
+    def _create_central_workflow(self):
+        """Create the central workflow widget."""
+        self.central_workflow = CentralWorkflowWidget(
             self.machine_config,
             self.plotter_state,
-            self.queue_panel,
         )
-        self.simulation_dock = self._create_dock_widget(
-            "Simulation",
-            self.simulation_ui,
-            Qt.DockWidgetArea.TopDockWidgetArea,
-        )
+        self.setCentralWidget(self.central_workflow)
 
-        # Command panel - Bottom (tabbed with Console)
-        self.command_panel = CommandPanel(self.machine_config)
-        self.command_dock = self._create_dock_widget(
-            "Commands",
-            self.command_panel,
-            Qt.DockWidgetArea.BottomDockWidgetArea,
-        )
+        # Get references to embedded panels for convenience
+        self.queue_panel = self.central_workflow.get_queue_panel()
+        self.command_panel = self.central_workflow.get_command_panel()
+        self.image_panel = self.central_workflow.get_image_panel()
+        self.simulation_ui = self.central_workflow.get_simulation_ui()
 
-        # Console panel - Bottom (tabbed with Commands)
-        self.console_panel = ConsolePanel()
-        self.console_dock = self._create_dock_widget(
-            "Console",
-            self.console_panel,
-            Qt.DockWidgetArea.BottomDockWidgetArea,
-        )
+    def _create_dock_widgets(self):
+        """Create State and Console panels as dockable widgets."""
 
-        # Tabify bottom panels for compactness
-        self.tabifyDockWidget(self.command_dock, self.console_dock)
+        # Only State and Console remain as docks
+        dock_panels = [
+            (
+                "state_panel",
+                "State",
+                StatePanel(self.plotter_state, self.machine_config),
+                Qt.DockWidgetArea.RightDockWidgetArea,
+            ),
+            (
+                "console_panel",
+                "Console",
+                ConsolePanel(),
+                Qt.DockWidgetArea.BottomDockWidgetArea,
+            ),
+        ]
 
-        # Tabify right panels for compactness
-        self.tabifyDockWidget(self.queue_dock, self.image_dock)
+        self.docks = []
+        for attr, name, panel, area in dock_panels:
+            setattr(self, attr, panel)
+            dock = self._create_dock_widget(name, panel, area)
+            setattr(self, f"{attr.split('_')[0]}_dock", dock)
+            self.docks.append(dock)
 
-        # Hide state panel for compact view, show others
-        self.simulation_dock.setVisible(True)
-        self.state_dock.setVisible(False)
-        self.queue_dock.setVisible(True)
-        self.command_dock.setVisible(True)
-        self.console_dock.setVisible(True)
-
-        # Add View menu actions now that dock widgets exist
+        # Add View menu actions for docks
         self._add_view_menu_actions()
         self._add_toolbar_toggles()
 
@@ -162,7 +140,7 @@ class PlotterControlWindow(QMainWindow):
         return dock
 
     def _add_view_menu_actions(self):
-        """Add toggle actions for each dock widget to the View menu."""
+        """Add toggle actions for dock widgets to the View menu."""
         menubar = self.menuBar()
         if menubar is None:
             return
@@ -170,13 +148,9 @@ class PlotterControlWindow(QMainWindow):
         if view_menu is None:
             return
 
-        # Create toggle actions for each dock widget
+        # Dock widget toggles
         dock_widgets = [
-            ("Simulation", self.simulation_dock),
             ("State", self.state_dock),
-            ("Queue", self.queue_dock),
-            ("Image Import", self.image_dock),
-            ("Commands", self.command_dock),
             ("Console", self.console_dock),
         ]
 
@@ -188,8 +162,27 @@ class PlotterControlWindow(QMainWindow):
             view_menu.addAction(action)
             self.view_actions[name] = action
 
+        view_menu.addSeparator()
+
+        # Workflow step shortcuts
+        step_actions = [
+            ("Go to Dashboard", WorkflowStep.DASHBOARD),
+            ("Go to Import", WorkflowStep.IMPORT),
+            ("Go to Preview", WorkflowStep.PREVIEW),
+            ("Go to Connect", WorkflowStep.CONNECT),
+            ("Go to Send", WorkflowStep.SEND),
+        ]
+
+        for name, step in step_actions:
+            action = QAction(name, self)
+            action.triggered.connect(
+                lambda checked, s=step: self.central_workflow.set_current_step(s)
+            )
+            view_menu.addAction(action)
+            self.view_actions[name] = action
+
     def _add_toolbar_toggles(self):
-        """Add toggle buttons to toolbar for each dock widget."""
+        """Add toggle buttons to toolbar for dock widgets."""
         # Get the main toolbar
         toolbar = self.findChild(QToolBar, "Main Toolbar")
         if not toolbar:
@@ -198,23 +191,15 @@ class PlotterControlWindow(QMainWindow):
         # Add label for panel toggles
         toolbar.addWidget(QLabel("Panels:"))
 
-        # Emoji/icon mapping for each panel
+        # Emoji/icon mapping for each dock panel
         panel_icons = {
-            "Simulation": "📊",
             "State": "📍",
-            "Queue": "📋",
-            "Image Import": "🖼",
-            "Commands": "🎮",
             "Console": "💬",
         }
 
-        # Create toggle buttons for each dock widget
+        # Create toggle buttons for dock widgets
         dock_widgets = [
-            ("Simulation", self.simulation_dock),
             ("State", self.state_dock),
-            ("Queue", self.queue_dock),
-            ("Image Import", self.image_dock),
-            ("Commands", self.command_dock),
             ("Console", self.console_dock),
         ]
 
@@ -251,39 +236,46 @@ class PlotterControlWindow(QMainWindow):
 
         toolbar.addSeparator()
 
-        # Port selection label
-        toolbar.addWidget(QLabel("Port:"))
-
-        # Port combo box
-        self.port_combo = QComboBox()
-        self.port_combo.setMinimumWidth(250)
-        self._refresh_ports()
-        toolbar.addWidget(self.port_combo)
-
-        # Refresh ports button
-        self.refresh_btn = QPushButton("🔄")
-        self.refresh_btn.setToolTip("Refresh serial ports")
-        self.refresh_btn.setMaximumWidth(40)
-        self.refresh_btn.clicked.connect(self._refresh_ports)
-        toolbar.addWidget(self.refresh_btn)
-
-        # Connect/Disconnect button
-        self.connect_btn = QPushButton("Connect")
-        self.connect_btn.setMinimumWidth(100)
-        self.connect_btn.clicked.connect(self._toggle_connection)
-        toolbar.addWidget(self.connect_btn)
-
-        # Connection status indicator
+        # Connection status indicator (minimal in toolbar, full UI in Connect page)
+        toolbar.addWidget(QLabel("Status:"))
         self.status_label = QLabel("●")
         self.status_label.setFont(FONTS.STATUS_INDICATOR)
         self.status_label.setStyleSheet(f"color: {StatusColors.DISCONNECTED};")
         self.status_label.setToolTip("Connection status")
         toolbar.addWidget(self.status_label)
 
+        # Quick connect button (for convenience)
+        self.quick_connect_btn = QPushButton("🔌")
+        self.quick_connect_btn.setToolTip("Go to Connect page")
+        self.quick_connect_btn.setMaximumWidth(35)
+        self.quick_connect_btn.clicked.connect(
+            lambda: self.central_workflow.set_current_step(WorkflowStep.CONNECT)
+        )
+        toolbar.addWidget(self.quick_connect_btn)
+
         toolbar.addSeparator()
 
-        # Panel toggle buttons (populated after dock widgets created)
-        # Placeholder - actual buttons added in _add_toolbar_toggles()
+        # We keep port combo for quick connection from toolbar too
+        toolbar.addWidget(QLabel("Port:"))
+        self.port_combo = QComboBox()
+        self.port_combo.setMinimumWidth(200)
+        self._refresh_ports()
+        toolbar.addWidget(self.port_combo)
+
+        self.refresh_btn = QPushButton("🔄")
+        self.refresh_btn.setToolTip("Refresh serial ports")
+        self.refresh_btn.setMaximumWidth(35)
+        self.refresh_btn.clicked.connect(self._refresh_ports)
+        toolbar.addWidget(self.refresh_btn)
+
+        self.connect_btn = QPushButton("Connect")
+        self.connect_btn.setMinimumWidth(80)
+        self.connect_btn.clicked.connect(self._toggle_connection)
+        toolbar.addWidget(self.connect_btn)
+
+        toolbar.addSeparator()
+
+        # Panel toggle buttons will be added after dock widgets are created
 
     def _connect_signals(self):
         """Connect all UI signals to handlers."""
@@ -291,13 +283,22 @@ class PlotterControlWindow(QMainWindow):
         # State panel
         self.state_panel.status_btn.clicked.connect(lambda: self._send_command("?"))
 
-        # Queue panel
+        # Central workflow signals
+        self.central_workflow.step_changed.connect(self._on_workflow_step_changed)
+        self.central_workflow.processing_complete.connect(self._on_image_processed)
+        self.central_workflow.preview_requested.connect(self._on_preview_requested)
+        self.central_workflow.add_to_queue_requested.connect(self._queue_image_commands)
+        self.central_workflow.connect_requested.connect(self._connect_to_port)
+        self.central_workflow.disconnect_requested.connect(self._disconnect)
+        self.central_workflow.home_requested.connect(lambda: self._send_command("H"))
+
+        # Queue panel (via central workflow)
         self.queue_panel.clear_btn.clicked.connect(self._clear_queue)
         self.queue_panel.send_next_btn.clicked.connect(self._send_next_in_queue)
         self.queue_panel.send_all_btn.clicked.connect(self._send_all_in_queue)
 
-        # Command panel
-        self.command_panel.home_btn.clicked.connect(lambda: self._queue_command("G28"))
+        # Command panel (via central workflow)
+        self.command_panel.home_btn.clicked.connect(lambda: self._queue_command("H"))
         self.command_panel.test_btn.clicked.connect(
             lambda:
             # AIDEV-NOTE: Queue commands to draw a colorful test
@@ -320,10 +321,10 @@ class PlotterControlWindow(QMainWindow):
         self.command_panel.custom_input.returnPressed.connect(self._send_custom_command)
         self.command_panel.send_custom_btn.clicked.connect(self._send_custom_command)
 
-        # Image panel
-        self.image_panel.processing_complete.connect(self._on_image_processed)
-        self.image_panel.preview_requested.connect(self._on_preview_requested)
-        self.image_panel.add_to_queue_requested.connect(self._queue_image_commands)
+    def _on_workflow_step_changed(self, step: int):
+        """Handle workflow step changes."""
+        step_name = WorkflowStep(step).label
+        self.console_panel.append(f"📍 Navigated to: {step_name}")
 
     # === Settings Dialog ===
 
@@ -408,8 +409,15 @@ class PlotterControlWindow(QMainWindow):
             self._connect()
 
     def _connect(self):
-        """Establish serial connection."""
+        """Establish serial connection using port from toolbar."""
         port = self.port_combo.currentData()
+        if not port:
+            QMessageBox.warning(self, "No Port Selected", "Please select a valid serial port.")
+            return
+        self._connect_to_port(port)
+
+    def _connect_to_port(self, port: str):
+        """Establish serial connection to specified port."""
         if not port:
             QMessageBox.warning(self, "No Port Selected", "Please select a valid serial port.")
             return
@@ -449,6 +457,7 @@ class PlotterControlWindow(QMainWindow):
     def _update_connection_state(self):
         """Update UI based on connection state."""
         state = self.plotter_state.connection
+        port = self.port_combo.currentData() or ""
 
         # AIDEV-NOTE: Update toolbar connection controls based on state
         if state == ConnectionState.CONNECTED:
@@ -476,16 +485,26 @@ class PlotterControlWindow(QMainWindow):
             self.status_label.setStyleSheet(f"color: {StatusColors.DISCONNECTED};")
             self.status_label.setToolTip("Disconnected")
 
+        # Update central workflow with connection state
+        self.central_workflow.update_connection_state(state, port)
+
     # === Command Management ===
 
     def _queue_command(self, command: str):
         """Add command to the queue."""
         self.queue_panel.add_command(command)
+        self._update_queue_count()
 
     def _queue_command_multiple(self, commands: "list[str]"):
         """Add multiple commands to the display queue."""
         for command in commands:
-            self._queue_command(command)
+            self.queue_panel.add_command(command)
+        self._update_queue_count()
+
+    def _update_queue_count(self):
+        """Update queue count in dashboard."""
+        count = self.queue_panel.count()
+        self.central_workflow.update_queue_count(count)
 
     def _queue_move_command(self):
         """Queue a move command with current input values."""
@@ -520,6 +539,7 @@ class PlotterControlWindow(QMainWindow):
         command = self.queue_panel.pop_first()
         if command:
             self._send_command(command)
+            self._update_queue_count()
 
     def _send_all_in_queue(self):
         """Send all queued commands with flow control."""
@@ -539,6 +559,7 @@ class PlotterControlWindow(QMainWindow):
     def _clear_queue(self):
         """Clear all queued commands."""
         self.queue_panel.clear()
+        self._update_queue_count()
         self.console_panel.append("Queue cleared.")
 
     # === Response Handling ===
@@ -558,6 +579,7 @@ class PlotterControlWindow(QMainWindow):
                 self.plotter_state.position_x = float(x.strip())
                 self.plotter_state.position_y = float(y.strip())
                 self.state_panel.update_state(self.plotter_state)
+                self.central_workflow.update_from_hardware_state(self.plotter_state)
             except (ValueError, IndexError):
                 pass  # Ignore parse errors
 
@@ -602,19 +624,14 @@ class PlotterControlWindow(QMainWindow):
 
     def _on_preview_requested(self, processed_image: ProcessedImage):
         """Show processed paths in simulation canvas."""
-        # AIDEV-NOTE: Pass paths to simulation for colored preview
-        self.simulation_ui.set_preview_paths(processed_image.paths)
         self.console_panel.append(f"🔍 Preview loaded: {len(processed_image.paths)} paths")
-        # Bring simulation panel to front
-        self.simulation_dock.raise_()
 
     def _queue_image_commands(self, commands: "list[str]"):
         """Add image-generated commands to queue."""
         for command in commands:
-            self._queue_command(command)
+            self.queue_panel.add_command(command)
+        self._update_queue_count()
         self.console_panel.append(f"➕ Added {len(commands)} commands from image to queue")
-
-    # === Configuration Management ===
 
     # === Application Lifecycle ===
 

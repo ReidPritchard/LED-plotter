@@ -6,6 +6,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap
+from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 from image_processing import ImageProcessor
 from models import (
+    TEMP_SVG_PATH,
     ImageProcessingConfig,
     MachineConfig,
     ProcessedImage,
@@ -28,9 +30,9 @@ from models import (
 )
 from path_to_commands import PathToCommandsConverter
 from ui.components import (
-    StippleControlsWidget,
-    HatchingControlsWidget,
     CrossHatchControlsWidget,
+    HatchingControlsWidget,
+    StippleControlsWidget,
 )
 from ui.styles import ThemeColors
 
@@ -82,7 +84,7 @@ class ImagePanel(QGroupBox):
     add_to_queue_requested = pyqtSignal(list)  # List[str] commands
 
     def __init__(self, machine_config: MachineConfig, parent: QWidget | None = None):
-        super().__init__("Image Import", parent)
+        super().__init__(None, parent)
         self.machine_config = machine_config
         self.processing_config = ImageProcessingConfig()
         self.current_image_path: str | None = None
@@ -132,6 +134,10 @@ class ImagePanel(QGroupBox):
 
     def _create_preview_area(self, parent_layout: QVBoxLayout):
         """Create image preview thumbnail."""
+        # Full preview area layout
+        preview_layout = QHBoxLayout()
+
+        # Input image preview
         self.preview_label = QLabel()
         self.preview_label.setMinimumSize(200, 150)
         self.preview_label.setMaximumSize(400, 300)
@@ -140,7 +146,23 @@ class ImagePanel(QGroupBox):
             f"border: 1px solid gray; background-color: {ThemeColors.BACKGROUND_PANEL};"
         )
         self.preview_label.setText("Image preview will appear here")
-        parent_layout.addWidget(self.preview_label)
+        preview_layout.addWidget(self.preview_label)
+
+        # Output image preview
+        output_layout = QVBoxLayout()
+        output_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.output_preview_label = QLabel("Output Preview:")
+        output_layout.addWidget(self.output_preview_label)
+
+        self.output_preview_svg = QSvgWidget()
+        self.output_preview_svg.setMinimumSize(200, 150)
+        self.output_preview_svg.setMaximumSize(400, 300)
+        output_layout.addWidget(self.output_preview_svg)
+
+        preview_layout.addLayout(output_layout)
+
+        parent_layout.addLayout(preview_layout)
 
     def _create_quantization_controls(self, parent_layout: QVBoxLayout):
         """Create color quantization controls."""
@@ -183,9 +205,12 @@ class ImagePanel(QGroupBox):
         quant_group.setLayout(quant_layout)
         parent_layout.addWidget(quant_group)
 
+        # Currently not used, so just hide
+        quant_group.setVisible(False)
+
     def _create_processing_options(self, parent_layout: QVBoxLayout):
         """Create vectorization options."""
-        options_group = QGroupBox("Vectorization Options")
+        options_group = QGroupBox()
         options_layout = QVBoxLayout()
 
         # Render style selection
@@ -392,6 +417,9 @@ class ImagePanel(QGroupBox):
         self.status_label.setText(
             f"Success! {path_count} paths, {cmd_count} commands, {total_length:.1f}mm total length"
         )
+
+        # Update output preview SVG
+        self.output_preview_svg.load(str(TEMP_SVG_PATH))
 
         # Emit signal
         self.processing_complete.emit(result)

@@ -12,6 +12,10 @@ SAFE_MARGIN = 50.0  # mm from edges
 # Configuration file path
 CONFIG_FILE = Path.home() / ".polarplot_config.json"
 
+# Path for storing temporary SVG files during image processing
+# Used to display output preview in the UI before sending to plotter
+TEMP_SVG_PATH = Path("/tmp/polarplot_temp.svg")
+
 
 class ConnectionState(Enum):
     """Serial connection states."""

@@ -10,6 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 from models import (
+    TEMP_SVG_PATH,
     ImageProcessingConfig,
     MachineConfig,
     ProcessedImage,
@@ -164,16 +165,15 @@ class ImageProcessor:
             # just error for now
             raise NotImplementedError(f"Render style {style} not implemented in this snippet.")
 
-        # DEBUG: Save intermediate SVG for inspection
-        debug_svg = colored_paths_to_svg(
+        # Save intermediate SVG to preview paths
+        result_path_preview_svg = colored_paths_to_svg(
             paths,
             svg_width=int(self.machine_config.width),
             svg_height=int(self.machine_config.height),
         )
-        with open("debug_output.svg", "w") as f:
-            f.write(debug_svg)
-
-        print("Saved debug_output.svg for inspection.")
+        with open(TEMP_SVG_PATH, "w") as f:
+            f.write(result_path_preview_svg)
+            print(f"Saved intermediate SVG to {TEMP_SVG_PATH} for preview.")
 
         # If the style is stipple, the commands should be to move to the
         # center of each stipple and display it's color (brightness based on
