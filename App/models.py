@@ -124,16 +124,10 @@ class ImageProcessingConfig:
 
     # Hatching style settings
     hatching_line_spacing_dark: float = 2.0  # Line spacing in dark areas in mm
-    hatching_line_spacing_light: float = (
-        10.0  # Line spacing in light areas in mm
-    )
+    hatching_line_spacing_light: float = 10.0  # Line spacing in light areas in mm
     hatching_angle: float = 45.0  # Angle of hatching lines in degrees
-    hatching_segment_max_length: float = (
-        30.0  # Max segment length in dark areas (mm)
-    )
-    hatching_segment_min_length: float = (
-        5.0  # Min segment length in light areas (mm)
-    )
+    hatching_segment_max_length: float = 30.0  # Max segment length in dark areas (mm)
+    hatching_segment_min_length: float = 5.0  # Min segment length in light areas (mm)
     hatching_segment_gap: float = 3.0  # Gap between segments (mm)
 
     # Cross-hatch style settings (progressive layers)

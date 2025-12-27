@@ -1,7 +1,6 @@
 """Machine configuration panel."""
 
 from PyQt6.QtWidgets import (
-    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QPushButton,
@@ -9,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 
 from models import MachineConfig
+from ui.widgets import WidgetFactory
 
 
 class ConfigPanel(QGroupBox):
@@ -26,25 +26,19 @@ class ConfigPanel(QGroupBox):
         # --- Machine Dimensions Group ---
         machine_group = QGroupBox("Machine Dimensions")
         machine_layout = QFormLayout()
-        self.width_input = QDoubleSpinBox()
-        self.width_input.setRange(100, 5000)
-        self.width_input.setValue(self.machine_config.width)
-        self.width_input.setSuffix(" mm")
-        self.width_input.setDecimals(0)
+        self.width_input = WidgetFactory.create_double_spinbox(
+            100, 5000, self.machine_config.width, " mm", decimals=0
+        )
         machine_layout.addRow("Width:", self.width_input)
 
-        self.height_input = QDoubleSpinBox()
-        self.height_input.setRange(100, 5000)
-        self.height_input.setValue(self.machine_config.height)
-        self.height_input.setSuffix(" mm")
-        self.height_input.setDecimals(0)
+        self.height_input = WidgetFactory.create_double_spinbox(
+            100, 5000, self.machine_config.height, " mm", decimals=0
+        )
         machine_layout.addRow("Height:", self.height_input)
 
-        self.margin_input = QDoubleSpinBox()
-        self.margin_input.setRange(0, 200)
-        self.margin_input.setValue(self.machine_config.safe_margin)
-        self.margin_input.setSuffix(" mm")
-        self.margin_input.setDecimals(0)
+        self.margin_input = WidgetFactory.create_double_spinbox(
+            0, 200, self.machine_config.safe_margin, " mm", decimals=0
+        )
         machine_layout.addRow("Margin:", self.margin_input)
 
         machine_group.setLayout(machine_layout)
@@ -53,18 +47,14 @@ class ConfigPanel(QGroupBox):
         # --- LED Settings Group ---
         led_group = QGroupBox("LED Settings")
         led_layout = QFormLayout()
-        self.led_enabled_btn = QPushButton(
-            "On" if self.machine_config.led_enabled else "Off"
-        )
+        self.led_enabled_btn = QPushButton("On" if self.machine_config.led_enabled else "Off")
         self.led_enabled_btn.setCheckable(True)
         self.led_enabled_btn.setChecked(self.machine_config.led_enabled)
         led_layout.addRow("LED Enabled:", self.led_enabled_btn)
 
-        self.led_brightness_input = QDoubleSpinBox()
-        self.led_brightness_input.setRange(0, 255)
-        self.led_brightness_input.setValue(self.machine_config.led_brightness)
-        self.led_brightness_input.setSuffix(" (0-255)")
-        self.led_brightness_input.setDecimals(0)
+        self.led_brightness_input = WidgetFactory.create_double_spinbox(
+            0, 255, self.machine_config.led_brightness, " (0-255)", decimals=0
+        )
         led_layout.addRow("LED Brightness:", self.led_brightness_input)
 
         led_group.setLayout(led_layout)
@@ -73,30 +63,24 @@ class ConfigPanel(QGroupBox):
         # --- Motor Settings Group ---
         motor_group = QGroupBox("Motor Settings")
         motor_layout = QFormLayout()
-        self.steps_per_mm_input = QDoubleSpinBox()
-        self.steps_per_mm_input.setRange(0.1, 20.0)
-        self.steps_per_mm_input.setValue(self.machine_config.steps_per_mm)
-        self.steps_per_mm_input.setDecimals(3)
+        self.steps_per_mm_input = WidgetFactory.create_double_spinbox(
+            0.1, 20.0, self.machine_config.steps_per_mm, decimals=3
+        )
         motor_layout.addRow("Steps per mm:", self.steps_per_mm_input)
 
-        self.microstepping_input = QDoubleSpinBox()
-        self.microstepping_input.setRange(1, 256)
-        self.microstepping_input.setValue(self.machine_config.microstepping)
-        self.microstepping_input.setDecimals(0)
+        self.microstepping_input = WidgetFactory.create_double_spinbox(
+            1, 256, self.machine_config.microstepping, decimals=0
+        )
         motor_layout.addRow("Microstepping:", self.microstepping_input)
 
-        self.speed_input = QDoubleSpinBox()
-        self.speed_input.setRange(10, 1000)
-        self.speed_input.setValue(self.machine_config.speed)
-        self.speed_input.setSuffix(" mm/s")
-        self.speed_input.setDecimals(0)
+        self.speed_input = WidgetFactory.create_double_spinbox(
+            10, 1000, self.machine_config.speed, " mm/s", decimals=0
+        )
         motor_layout.addRow("Speed:", self.speed_input)
 
-        self.acceleration_input = QDoubleSpinBox()
-        self.acceleration_input.setRange(10, 5000)
-        self.acceleration_input.setValue(self.machine_config.acceleration)
-        self.acceleration_input.setSuffix(" mm/s²")
-        self.acceleration_input.setDecimals(0)
+        self.acceleration_input = WidgetFactory.create_double_spinbox(
+            10, 5000, self.machine_config.acceleration, " mm/s²", decimals=0
+        )
         motor_layout.addRow("Acceleration:", self.acceleration_input)
 
         motor_group.setLayout(motor_layout)
@@ -104,9 +88,7 @@ class ConfigPanel(QGroupBox):
 
         # --- Reset Button ---
         self.reset_btn = QPushButton("↺ Reset to Defaults")
-        self.reset_btn.setToolTip(
-            "Reset to default values (800×600mm, 50mm margin)"
-        )
+        self.reset_btn.setToolTip("Reset to default values (800×600mm, 50mm margin)")
         main_layout.addWidget(self.reset_btn)
 
         main_layout.addStretch()

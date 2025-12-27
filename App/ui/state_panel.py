@@ -30,30 +30,20 @@ class StatePanel(QGroupBox):
         layout.addRow("Position Y:", self.pos_y_label)
 
         # Cable lengths
-        self.left_cable_label = QLabel(
-            f"{self.plotter_state.left_cable:.1f} mm"
-        )
-        self.right_cable_label = QLabel(
-            f"{self.plotter_state.right_cable:.1f} mm"
-        )
+        self.left_cable_label = QLabel(f"{self.plotter_state.left_cable:.1f} mm")
+        self.right_cable_label = QLabel(f"{self.plotter_state.right_cable:.1f} mm")
         layout.addRow("Left Cable:", self.left_cable_label)
         layout.addRow("Right Cable:", self.right_cable_label)
 
         # Calibration
-        self.steps_per_mm_label = QLabel(
-            f"{self.plotter_state.steps_per_mm:.4f}"
-        )
+        self.steps_per_mm_label = QLabel(f"{self.plotter_state.steps_per_mm:.4f}")
         layout.addRow("Steps/mm:", self.steps_per_mm_label)
 
         # Machine dimensions (from config)
         layout.addRow("", QLabel(""))  # Spacer
         self.config_width_label = QLabel(f"{self.machine_config.width:.0f} mm")
-        self.config_height_label = QLabel(
-            f"{self.machine_config.height:.0f} mm"
-        )
-        self.config_margin_label = QLabel(
-            f"{self.machine_config.safe_margin:.0f} mm"
-        )
+        self.config_height_label = QLabel(f"{self.machine_config.height:.0f} mm")
+        self.config_margin_label = QLabel(f"{self.machine_config.safe_margin:.0f} mm")
         layout.addRow("Machine Width:", self.config_width_label)
         layout.addRow("Machine Height:", self.config_height_label)
         layout.addRow("Safe Margin:", self.config_margin_label)
@@ -78,6 +68,4 @@ class StatePanel(QGroupBox):
         self.machine_config = machine_config
         self.config_width_label.setText(f"{machine_config.width:.0f} mm")
         self.config_height_label.setText(f"{machine_config.height:.0f} mm")
-        self.config_margin_label.setText(
-            f"{machine_config.safe_margin:.0f} mm"
-        )
+        self.config_margin_label.setText(f"{machine_config.safe_margin:.0f} mm")

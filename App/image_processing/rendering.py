@@ -87,24 +87,18 @@ def render_stipples(
                     x + radius * math.cos(angle) + offset_x,
                     y + radius * math.sin(angle) + offset_y,
                 )
-                for angle in (
-                    2 * math.pi * i / num_points for i in range(num_points + 1)
-                )
+                for angle in (2 * math.pi * i / num_points for i in range(num_points + 1))
             ]
 
             # get the color of the stipple
-            average_color = get_average_color_circle(
-                image, int_x(x), int_y(y), int(radius)
-            )
+            average_color = get_average_color_circle(image, int_x(x), int_y(y), int(radius))
 
             # If not inverted, invert all the colors
             if not invert and len(average_color) == 3:
                 average_color = tuple(255 - c for c in average_color)
 
             # Scale the color by darkness to make lighter dots for lighter areas
-            average_color = tuple(
-                max(0, min(255, int(c * darkness))) for c in average_color
-            )
+            average_color = tuple(max(0, min(255, int(c * darkness))) for c in average_color)
 
             if len(circle_points) >= 3 and len(average_color) == 3:
                 append_path(
@@ -179,9 +173,7 @@ def render_hatching(
         center_y = height / 2 + current_offset * py
 
         # Find where line enters and exits the image rectangle
-        line_points = clip_line_to_rect(
-            center_x, center_y, dx, dy, 0, 0, width, height
-        )
+        line_points = clip_line_to_rect(center_x, center_y, dx, dy, 0, 0, width, height)
 
         if not line_points or len(line_points) != 2:
             # Line doesn't intersect image, skip to next
@@ -223,13 +215,9 @@ def render_hatching(
             continue
 
         # Calculate spacing to next parallel line based on average darkness
-        spacing = (
+        spacing = processing_config.hatching_line_spacing_light - avg_darkness * (
             processing_config.hatching_line_spacing_light
-            - avg_darkness
-            * (
-                processing_config.hatching_line_spacing_light
-                - processing_config.hatching_line_spacing_dark
-            )
+            - processing_config.hatching_line_spacing_dark
         )
 
         # AIDEV-NOTE: Break line into segments with varying lengths based on local brightness
@@ -258,19 +246,13 @@ def render_hatching(
 
             # Calculate segment length based on darkness
             # Darker = longer segments (up to max), lighter = shorter segments (down to min)
-            segment_length = (
-                processing_config.hatching_segment_min_length
-                + darkness
-                * (
-                    processing_config.hatching_segment_max_length
-                    - processing_config.hatching_segment_min_length
-                )
+            segment_length = processing_config.hatching_segment_min_length + darkness * (
+                processing_config.hatching_segment_max_length
+                - processing_config.hatching_segment_min_length
             )
 
             # Clamp segment to not exceed remaining line length
-            segment_length = min(
-                segment_length, line_length - current_distance
-            )
+            segment_length = min(segment_length, line_length - current_distance)
 
             # Calculate segment end position
             seg_end_x = seg_start_x + segment_length * dir_x
@@ -414,9 +396,7 @@ def _render_hatch_layer_with_threshold(
         center_x = width / 2 + current_offset * px
         center_y = height / 2 + current_offset * py
 
-        line_points = clip_line_to_rect(
-            center_x, center_y, dx, dy, 0, 0, width, height
-        )
+        line_points = clip_line_to_rect(center_x, center_y, dx, dy, 0, 0, width, height)
 
         if not line_points or len(line_points) != 2:
             current_offset += line_spacing_light
@@ -451,9 +431,7 @@ def _render_hatch_layer_with_threshold(
             continue
 
         # Calculate spacing to next parallel line based on darkness
-        spacing = line_spacing_light - avg_darkness * (
-            line_spacing_light - line_spacing_dark
-        )
+        spacing = line_spacing_light - avg_darkness * (line_spacing_light - line_spacing_dark)
 
         # Break line into segments with varying lengths
         current_distance = 0.0
@@ -480,9 +458,7 @@ def _render_hatch_layer_with_threshold(
             )
 
             # Clamp to remaining line length
-            segment_length = min(
-                segment_length, line_length - current_distance
-            )
+            segment_length = min(segment_length, line_length - current_distance)
 
             # Calculate segment end position
             seg_end_x = seg_start_x + segment_length * dir_x

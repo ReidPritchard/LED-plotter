@@ -53,9 +53,7 @@ def scale_paths_to_machine(
     # Scale all paths
     scaled_paths = []
     for path in paths:
-        scaled_points = [
-            (x * scale + offset_x, y * scale + offset_y) for x, y in path.points
-        ]
+        scaled_points = [(x * scale + offset_x, y * scale + offset_y) for x, y in path.points]
         scaled_paths.append(
             ColoredPath(
                 points=scaled_points,

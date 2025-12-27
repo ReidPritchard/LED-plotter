@@ -43,9 +43,7 @@ class SerialThread(QThread):
             return
 
         try:
-            self.serial_port = serial.Serial(
-                self.port, self.baudrate, timeout=0.1
-            )
+            self.serial_port = serial.Serial(self.port, self.baudrate, timeout=0.1)
             self.connection_changed.emit(ConnectionState.CONNECTED)
 
             while self.running:
@@ -90,16 +88,12 @@ class SerialThread(QThread):
             self.current_command = None
 
         elif line == "BUSY":
-            self.error_occurred.emit(
-                f"Command rejected - plotter busy: {self.current_command}"
-            )
+            self.error_occurred.emit(f"Command rejected - plotter busy: {self.current_command}")
             self.waiting_for_ack = False
             self.current_command = None
 
         elif line == "ERR":
-            self.error_occurred.emit(
-                f"Invalid command: {self.current_command}"
-            )
+            self.error_occurred.emit(f"Invalid command: {self.current_command}")
             self.waiting_for_ack = False
             self.current_command = None
 
@@ -108,9 +102,7 @@ class SerialThread(QThread):
     def _process_ack_timeout(self):
         if self.waiting_for_ack and self.current_command:
             if time.time() - self.command_sent_time > self.ack_timeout:
-                self.error_occurred.emit(
-                    f"Timeout waiting for response to: {self.current_command}"
-                )
+                self.error_occurred.emit(f"Timeout waiting for response to: {self.current_command}")
                 self.waiting_for_ack = False
                 self.current_command = None
 

@@ -7,9 +7,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -17,7 +15,6 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSlider,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +27,12 @@ from models import (
     RenderStyle,
 )
 from path_to_commands import PathToCommandsConverter
+from ui.components import (
+    StippleControlsWidget,
+    HatchingControlsWidget,
+    CrossHatchControlsWidget,
+)
+from ui.styles import ThemeColors
 
 
 class ProcessingThread(QThread):
@@ -53,9 +56,7 @@ class ProcessingThread(QThread):
     def run(self):
         """Execute image processing in background."""
         try:
-            processor = ImageProcessor(
-                self.machine_config, self.processing_config
-            )
+            processor = ImageProcessor(self.machine_config, self.processing_config)
 
             self.progress.emit(10)
             # Load image
@@ -80,9 +81,7 @@ class ImagePanel(QGroupBox):
     preview_requested = pyqtSignal(object)  # ProcessedImage
     add_to_queue_requested = pyqtSignal(list)  # List[str] commands
 
-    def __init__(
-        self, machine_config: MachineConfig, parent: QWidget | None = None
-    ):
+    def __init__(self, machine_config: MachineConfig, parent: QWidget | None = None):
         super().__init__("Image Import", parent)
         self.machine_config = machine_config
         self.processing_config = ImageProcessingConfig()
@@ -138,7 +137,7 @@ class ImagePanel(QGroupBox):
         self.preview_label.setMaximumSize(400, 300)
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet(
-            "border: 1px solid gray; background-color: #2a2a2a;"
+            f"border: 1px solid gray; background-color: {ThemeColors.BACKGROUND_PANEL};"
         )
         self.preview_label.setText("Image preview will appear here")
         parent_layout.addWidget(self.preview_label)
@@ -205,10 +204,15 @@ class ImagePanel(QGroupBox):
         self.style_settings_group.setLayout(self.style_settings_layout)
         options_layout.addWidget(self.style_settings_group)
 
-        # Create controls for each style (will be shown/hidden dynamically)
-        self._create_stipple_controls()
-        self._create_hatching_controls()
-        self._create_cross_hatch_controls()
+        # Create component widgets for each style (shown/hidden dynamically)
+        self.stipple_controls = StippleControlsWidget(self.processing_config)
+        self.hatching_controls = HatchingControlsWidget(self.processing_config)
+        self.cross_hatch_controls = CrossHatchControlsWidget(self.processing_config)
+
+        # Add components to layout
+        self.style_settings_layout.addWidget(self.stipple_controls)
+        self.style_settings_layout.addWidget(self.hatching_controls)
+        self.style_settings_layout.addWidget(self.cross_hatch_controls)
 
         # Initially show controls for first style
         self._update_style_controls(0)
@@ -216,343 +220,17 @@ class ImagePanel(QGroupBox):
         options_group.setLayout(options_layout)
         parent_layout.addWidget(options_group)
 
-    def _create_stipple_controls(self):
-        """Create controls for stipple rendering style."""
-        self.stipple_controls_widget = QWidget()
-        stipple_layout = QVBoxLayout()
-        stipple_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Density slider
-        density_layout = QHBoxLayout()
-        density_layout.addWidget(QLabel("Density:"))
-        self.stipple_density_slider = QSlider(Qt.Orientation.Horizontal)
-        self.stipple_density_slider.setRange(0, 100)
-        self.stipple_density_slider.setValue(
-            int(self.processing_config.stipple_density * 100)
-        )
-        self.stipple_density_slider.setToolTip(
-            "Probability of drawing each dot"
-        )
-        density_layout.addWidget(self.stipple_density_slider)
-        self.stipple_density_label = QLabel(
-            f"{self.processing_config.stipple_density:.2f}"
-        )
-        self.stipple_density_label.setMinimumWidth(40)
-        density_layout.addWidget(self.stipple_density_label)
-        stipple_layout.addLayout(density_layout)
-
-        # Max radius
-        max_rad_layout = QHBoxLayout()
-        max_rad_layout.addWidget(QLabel("Max Radius:"))
-        self.stipple_max_radius_spin = QDoubleSpinBox()
-        self.stipple_max_radius_spin.setRange(0.1, 10.0)
-        self.stipple_max_radius_spin.setSingleStep(0.5)
-        self.stipple_max_radius_spin.setValue(
-            self.processing_config.stipple_max_radius
-        )
-        self.stipple_max_radius_spin.setSuffix(" mm")
-        self.stipple_max_radius_spin.setToolTip(
-            "Maximum dot radius in dark areas"
-        )
-        max_rad_layout.addWidget(self.stipple_max_radius_spin)
-        stipple_layout.addLayout(max_rad_layout)
-
-        # Min radius
-        min_rad_layout = QHBoxLayout()
-        min_rad_layout.addWidget(QLabel("Min Radius:"))
-        self.stipple_min_radius_spin = QDoubleSpinBox()
-        self.stipple_min_radius_spin.setRange(0.1, 5.0)
-        self.stipple_min_radius_spin.setSingleStep(0.1)
-        self.stipple_min_radius_spin.setValue(
-            self.processing_config.stipple_min_radius
-        )
-        self.stipple_min_radius_spin.setSuffix(" mm")
-        self.stipple_min_radius_spin.setToolTip(
-            "Minimum dot radius in light areas"
-        )
-        min_rad_layout.addWidget(self.stipple_min_radius_spin)
-        stipple_layout.addLayout(min_rad_layout)
-
-        # Points per circle
-        points_layout = QHBoxLayout()
-        points_layout.addWidget(QLabel("Points per Circle:"))
-        self.stipple_points_spin = QSpinBox()
-        self.stipple_points_spin.setRange(8, 64)
-        self.stipple_points_spin.setSingleStep(4)
-        self.stipple_points_spin.setValue(
-            self.processing_config.stipple_points_per_circle
-        )
-        self.stipple_points_spin.setToolTip(
-            "Number of points to draw each circle"
-        )
-        points_layout.addWidget(self.stipple_points_spin)
-        stipple_layout.addLayout(points_layout)
-
-        # Invert checkbox
-        self.stipple_invert_check = QCheckBox("Invert (dots in bright areas)")
-        self.stipple_invert_check.setChecked(
-            self.processing_config.stipple_invert
-        )
-        self.stipple_invert_check.setToolTip(
-            "Draw dots in bright areas instead of dark"
-        )
-        stipple_layout.addWidget(self.stipple_invert_check)
-
-        self.stipple_controls_widget.setLayout(stipple_layout)
-        self.style_settings_layout.addWidget(self.stipple_controls_widget)
-
-    def _create_hatching_controls(self):
-        """Create controls for hatching rendering style."""
-        self.hatching_controls_widget = QWidget()
-        hatching_layout = QVBoxLayout()
-        hatching_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Line spacing (dark)
-        dark_spacing_layout = QHBoxLayout()
-        dark_spacing_layout.addWidget(QLabel("Line Spacing (Dark):"))
-        self.hatching_spacing_dark_spin = QDoubleSpinBox()
-        self.hatching_spacing_dark_spin.setRange(0.5, 20.0)
-        self.hatching_spacing_dark_spin.setSingleStep(0.5)
-        self.hatching_spacing_dark_spin.setValue(
-            self.processing_config.hatching_line_spacing_dark
-        )
-        self.hatching_spacing_dark_spin.setSuffix(" mm")
-        self.hatching_spacing_dark_spin.setToolTip(
-            "Spacing between lines in dark areas"
-        )
-        dark_spacing_layout.addWidget(self.hatching_spacing_dark_spin)
-        hatching_layout.addLayout(dark_spacing_layout)
-
-        # Line spacing (light)
-        light_spacing_layout = QHBoxLayout()
-        light_spacing_layout.addWidget(QLabel("Line Spacing (Light):"))
-        self.hatching_spacing_light_spin = QDoubleSpinBox()
-        self.hatching_spacing_light_spin.setRange(1.0, 50.0)
-        self.hatching_spacing_light_spin.setSingleStep(1.0)
-        self.hatching_spacing_light_spin.setValue(
-            self.processing_config.hatching_line_spacing_light
-        )
-        self.hatching_spacing_light_spin.setSuffix(" mm")
-        self.hatching_spacing_light_spin.setToolTip(
-            "Spacing between lines in light areas"
-        )
-        light_spacing_layout.addWidget(self.hatching_spacing_light_spin)
-        hatching_layout.addLayout(light_spacing_layout)
-
-        # Angle slider
-        angle_layout = QHBoxLayout()
-        angle_layout.addWidget(QLabel("Angle:"))
-        self.hatching_angle_slider = QSlider(Qt.Orientation.Horizontal)
-        self.hatching_angle_slider.setRange(0, 180)
-        self.hatching_angle_slider.setValue(
-            int(self.processing_config.hatching_angle)
-        )
-        self.hatching_angle_slider.setTickPosition(
-            QSlider.TickPosition.TicksBelow
-        )
-        self.hatching_angle_slider.setTickInterval(45)
-        self.hatching_angle_slider.setToolTip("Angle of hatching lines")
-        angle_layout.addWidget(self.hatching_angle_slider)
-        self.hatching_angle_label = QLabel(
-            f"{self.processing_config.hatching_angle:.0f}°"
-        )
-        self.hatching_angle_label.setMinimumWidth(40)
-        angle_layout.addWidget(self.hatching_angle_label)
-        hatching_layout.addLayout(angle_layout)
-
-        # Segment max length
-        seg_max_layout = QHBoxLayout()
-        seg_max_layout.addWidget(QLabel("Segment Max Length:"))
-        self.hatching_seg_max_spin = QDoubleSpinBox()
-        self.hatching_seg_max_spin.setRange(5.0, 100.0)
-        self.hatching_seg_max_spin.setSingleStep(5.0)
-        self.hatching_seg_max_spin.setValue(
-            self.processing_config.hatching_segment_max_length
-        )
-        self.hatching_seg_max_spin.setSuffix(" mm")
-        self.hatching_seg_max_spin.setToolTip(
-            "Max segment length in dark areas"
-        )
-        seg_max_layout.addWidget(self.hatching_seg_max_spin)
-        hatching_layout.addLayout(seg_max_layout)
-
-        # Segment min length
-        seg_min_layout = QHBoxLayout()
-        seg_min_layout.addWidget(QLabel("Segment Min Length:"))
-        self.hatching_seg_min_spin = QDoubleSpinBox()
-        self.hatching_seg_min_spin.setRange(1.0, 50.0)
-        self.hatching_seg_min_spin.setSingleStep(1.0)
-        self.hatching_seg_min_spin.setValue(
-            self.processing_config.hatching_segment_min_length
-        )
-        self.hatching_seg_min_spin.setSuffix(" mm")
-        self.hatching_seg_min_spin.setToolTip(
-            "Min segment length in light areas"
-        )
-        seg_min_layout.addWidget(self.hatching_seg_min_spin)
-        hatching_layout.addLayout(seg_min_layout)
-
-        # Segment gap
-        seg_gap_layout = QHBoxLayout()
-        seg_gap_layout.addWidget(QLabel("Segment Gap:"))
-        self.hatching_seg_gap_spin = QDoubleSpinBox()
-        self.hatching_seg_gap_spin.setRange(0.5, 20.0)
-        self.hatching_seg_gap_spin.setSingleStep(0.5)
-        self.hatching_seg_gap_spin.setValue(
-            self.processing_config.hatching_segment_gap
-        )
-        self.hatching_seg_gap_spin.setSuffix(" mm")
-        self.hatching_seg_gap_spin.setToolTip("Gap between segments")
-        seg_gap_layout.addWidget(self.hatching_seg_gap_spin)
-        hatching_layout.addLayout(seg_gap_layout)
-
-        self.hatching_controls_widget.setLayout(hatching_layout)
-        self.style_settings_layout.addWidget(self.hatching_controls_widget)
-
-    def _create_cross_hatch_controls(self):
-        """Create controls for cross-hatch rendering style."""
-        self.cross_hatch_controls_widget = QWidget()
-        cross_hatch_layout = QVBoxLayout()
-        cross_hatch_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Max angles (number of hatch directions)
-        max_angles_layout = QHBoxLayout()
-        max_angles_layout.addWidget(QLabel("Max Angles:"))
-        self.cross_hatch_max_angles_spin = QSpinBox()
-        self.cross_hatch_max_angles_spin.setRange(2, 4)
-        self.cross_hatch_max_angles_spin.setValue(
-            self.processing_config.cross_hatch_max_angles
-        )
-        self.cross_hatch_max_angles_spin.setToolTip(
-            "Maximum number of hatch directions (progressive layers)"
-        )
-        max_angles_layout.addWidget(self.cross_hatch_max_angles_spin)
-        cross_hatch_layout.addLayout(max_angles_layout)
-
-        # Base angle slider
-        base_angle_layout = QHBoxLayout()
-        base_angle_layout.addWidget(QLabel("Base Angle:"))
-        self.cross_hatch_base_angle_slider = QSlider(Qt.Orientation.Horizontal)
-        self.cross_hatch_base_angle_slider.setRange(0, 180)
-        self.cross_hatch_base_angle_slider.setValue(
-            int(self.processing_config.cross_hatch_base_angle)
-        )
-        self.cross_hatch_base_angle_slider.setTickPosition(
-            QSlider.TickPosition.TicksBelow
-        )
-        self.cross_hatch_base_angle_slider.setTickInterval(45)
-        self.cross_hatch_base_angle_slider.setToolTip(
-            "Starting angle (subsequent angles evenly distributed)"
-        )
-        base_angle_layout.addWidget(self.cross_hatch_base_angle_slider)
-        self.cross_hatch_base_angle_label = QLabel(
-            f"{self.processing_config.cross_hatch_base_angle:.0f}°"
-        )
-        self.cross_hatch_base_angle_label.setMinimumWidth(40)
-        base_angle_layout.addWidget(self.cross_hatch_base_angle_label)
-        cross_hatch_layout.addLayout(base_angle_layout)
-
-        # Line spacing (dark)
-        dark_spacing_layout = QHBoxLayout()
-        dark_spacing_layout.addWidget(QLabel("Line Spacing (Dark):"))
-        self.cross_hatch_spacing_dark_spin = QDoubleSpinBox()
-        self.cross_hatch_spacing_dark_spin.setRange(0.5, 20.0)
-        self.cross_hatch_spacing_dark_spin.setSingleStep(0.5)
-        self.cross_hatch_spacing_dark_spin.setValue(
-            self.processing_config.cross_hatch_line_spacing_dark
-        )
-        self.cross_hatch_spacing_dark_spin.setSuffix(" mm")
-        self.cross_hatch_spacing_dark_spin.setToolTip(
-            "Spacing between lines in dark areas"
-        )
-        dark_spacing_layout.addWidget(self.cross_hatch_spacing_dark_spin)
-        cross_hatch_layout.addLayout(dark_spacing_layout)
-
-        # Line spacing (light)
-        light_spacing_layout = QHBoxLayout()
-        light_spacing_layout.addWidget(QLabel("Line Spacing (Light):"))
-        self.cross_hatch_spacing_light_spin = QDoubleSpinBox()
-        self.cross_hatch_spacing_light_spin.setRange(1.0, 50.0)
-        self.cross_hatch_spacing_light_spin.setSingleStep(1.0)
-        self.cross_hatch_spacing_light_spin.setValue(
-            self.processing_config.cross_hatch_line_spacing_light
-        )
-        self.cross_hatch_spacing_light_spin.setSuffix(" mm")
-        self.cross_hatch_spacing_light_spin.setToolTip(
-            "Spacing between lines in light areas"
-        )
-        light_spacing_layout.addWidget(self.cross_hatch_spacing_light_spin)
-        cross_hatch_layout.addLayout(light_spacing_layout)
-
-        # Segment max length
-        seg_max_layout = QHBoxLayout()
-        seg_max_layout.addWidget(QLabel("Segment Max Length:"))
-        self.cross_hatch_seg_max_spin = QDoubleSpinBox()
-        self.cross_hatch_seg_max_spin.setRange(5.0, 100.0)
-        self.cross_hatch_seg_max_spin.setSingleStep(5.0)
-        self.cross_hatch_seg_max_spin.setValue(
-            self.processing_config.cross_hatch_segment_max_length
-        )
-        self.cross_hatch_seg_max_spin.setSuffix(" mm")
-        self.cross_hatch_seg_max_spin.setToolTip(
-            "Max segment length in dark areas"
-        )
-        seg_max_layout.addWidget(self.cross_hatch_seg_max_spin)
-        cross_hatch_layout.addLayout(seg_max_layout)
-
-        # Segment min length
-        seg_min_layout = QHBoxLayout()
-        seg_min_layout.addWidget(QLabel("Segment Min Length:"))
-        self.cross_hatch_seg_min_spin = QDoubleSpinBox()
-        self.cross_hatch_seg_min_spin.setRange(1.0, 50.0)
-        self.cross_hatch_seg_min_spin.setSingleStep(1.0)
-        self.cross_hatch_seg_min_spin.setValue(
-            self.processing_config.cross_hatch_segment_min_length
-        )
-        self.cross_hatch_seg_min_spin.setSuffix(" mm")
-        self.cross_hatch_seg_min_spin.setToolTip(
-            "Min segment length in light areas"
-        )
-        seg_min_layout.addWidget(self.cross_hatch_seg_min_spin)
-        cross_hatch_layout.addLayout(seg_min_layout)
-
-        # Segment gap
-        seg_gap_layout = QHBoxLayout()
-        seg_gap_layout.addWidget(QLabel("Segment Gap:"))
-        self.cross_hatch_seg_gap_spin = QDoubleSpinBox()
-        self.cross_hatch_seg_gap_spin.setRange(0.5, 20.0)
-        self.cross_hatch_seg_gap_spin.setSingleStep(0.5)
-        self.cross_hatch_seg_gap_spin.setValue(
-            self.processing_config.cross_hatch_segment_gap
-        )
-        self.cross_hatch_seg_gap_spin.setSuffix(" mm")
-        self.cross_hatch_seg_gap_spin.setToolTip("Gap between segments")
-        seg_gap_layout.addWidget(self.cross_hatch_seg_gap_spin)
-        cross_hatch_layout.addLayout(seg_gap_layout)
-
-        self.cross_hatch_controls_widget.setLayout(cross_hatch_layout)
-        self.style_settings_layout.addWidget(self.cross_hatch_controls_widget)
-
     def _update_style_controls(self, style_index: int):
         """Show/hide controls based on selected render style."""
-        # Hide all control groups
-        self.stipple_controls_widget.setVisible(False)
-        self.hatching_controls_widget.setVisible(False)
-        self.cross_hatch_controls_widget.setVisible(False)
+        style = list(RenderStyle)[style_index]
 
-        style_widgets = {
-            RenderStyle.STIPPLES: self.stipple_controls_widget,
-            RenderStyle.HATCHING: self.hatching_controls_widget,
-            RenderStyle.CROSS_HATCH: self.cross_hatch_controls_widget,
-        }
-
-        # Show controls for selected style
-        style = [style for style in RenderStyle][style_index]
-        if style in style_widgets:
-            style_widgets[style].setVisible(True)
+        self.stipple_controls.setVisible(style == RenderStyle.STIPPLES)
+        self.hatching_controls.setVisible(style == RenderStyle.HATCHING)
+        self.cross_hatch_controls.setVisible(style == RenderStyle.CROSS_HATCH)
 
     def _create_action_buttons(self, parent_layout: QVBoxLayout):
-        """Create main action buttons."""
+        """Create processing action buttons."""
+        # First row of buttons
         btn_layout = QHBoxLayout()
 
         self.process_btn = QPushButton("Process Image")
@@ -591,101 +269,18 @@ class ImagePanel(QGroupBox):
         """Connect internal signals to handlers."""
         self.browse_btn.clicked.connect(self._on_browse_clicked)
         self.num_colors_slider.valueChanged.connect(self._on_colors_changed)
-        self.quant_method_combo.currentIndexChanged.connect(
-            self._on_method_changed
-        )
-        self.render_style_combo.currentIndexChanged.connect(
-            self._on_render_style_changed
-        )
+        self.quant_method_combo.currentIndexChanged.connect(self._on_method_changed)
+        self.render_style_combo.currentIndexChanged.connect(self._on_render_style_changed)
         self.process_btn.clicked.connect(self._on_process_clicked)
         self.preview_btn.clicked.connect(self._on_preview_clicked)
         self.add_queue_btn.clicked.connect(self._on_add_queue_clicked)
 
-        # Connect stipple controls
-        self.stipple_density_slider.valueChanged.connect(
-            lambda v: self._update_stipple_density(v)
-        )
-        self.stipple_max_radius_spin.valueChanged.connect(
-            lambda v: setattr(self.processing_config, "stipple_max_radius", v)
-        )
-        self.stipple_min_radius_spin.valueChanged.connect(
-            lambda v: setattr(self.processing_config, "stipple_min_radius", v)
-        )
-        self.stipple_points_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "stipple_points_per_circle", v
-            )
-        )
-        self.stipple_invert_check.toggled.connect(
-            lambda checked: setattr(
-                self.processing_config, "stipple_invert", checked
-            )
-        )
-
-        # Connect hatching controls
-        self.hatching_spacing_dark_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "hatching_line_spacing_dark", v
-            )
-        )
-        self.hatching_spacing_light_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "hatching_line_spacing_light", v
-            )
-        )
-        self.hatching_angle_slider.valueChanged.connect(
-            lambda v: self._update_hatching_angle(v)
-        )
-        self.hatching_seg_max_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "hatching_segment_max_length", v
-            )
-        )
-        self.hatching_seg_min_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "hatching_segment_min_length", v
-            )
-        )
-        self.hatching_seg_gap_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "hatching_segment_gap", v
-            )
-        )
-
-        # Connect cross-hatch controls
-        self.cross_hatch_max_angles_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "cross_hatch_max_angles", v
-            )
-        )
-        self.cross_hatch_base_angle_slider.valueChanged.connect(
-            lambda v: self._update_cross_hatch_base_angle(v)
-        )
-        self.cross_hatch_spacing_dark_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "cross_hatch_line_spacing_dark", v
-            )
-        )
-        self.cross_hatch_spacing_light_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "cross_hatch_line_spacing_light", v
-            )
-        )
-        self.cross_hatch_seg_max_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "cross_hatch_segment_max_length", v
-            )
-        )
-        self.cross_hatch_seg_min_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "cross_hatch_segment_min_length", v
-            )
-        )
-        self.cross_hatch_seg_gap_spin.valueChanged.connect(
-            lambda v: setattr(
-                self.processing_config, "cross_hatch_segment_gap", v
-            )
-        )
+        # Connect component widget signals
+        # Note: Components update processing_config directly, we just need
+        # to listen for changes if we want to react to them
+        self.stipple_controls.config_changed.connect(lambda: None)  # No action needed
+        self.hatching_controls.config_changed.connect(lambda: None)
+        self.cross_hatch_controls.config_changed.connect(lambda: None)
 
     # === Event Handlers ===
 
@@ -746,27 +341,9 @@ class ImagePanel(QGroupBox):
     def _on_render_style_changed(self, index: int):
         """Update render style and show appropriate controls."""
         # Update config
-        self.processing_config.render_style = [style for style in RenderStyle][
-            index
-        ]
+        self.processing_config.render_style = [style for style in RenderStyle][index]
         # Update visible controls
         self._update_style_controls(index)
-
-    def _update_stipple_density(self, value: int):
-        """Update stipple density config and label."""
-        density = value / 100.0
-        self.processing_config.stipple_density = density
-        self.stipple_density_label.setText(f"{density:.2f}")
-
-    def _update_hatching_angle(self, value: int):
-        """Update hatching angle config and label."""
-        self.processing_config.hatching_angle = float(value)
-        self.hatching_angle_label.setText(f"{value}°")
-
-    def _update_cross_hatch_base_angle(self, value: int):
-        """Update cross-hatch base angle config and label."""
-        self.processing_config.cross_hatch_base_angle = float(value)
-        self.cross_hatch_base_angle_label.setText(f"{value}°")
 
     def _on_process_clicked(self):
         """Start image processing in background thread."""
@@ -813,8 +390,7 @@ class ImagePanel(QGroupBox):
         total_length = result.total_path_length
         cmd_count = result.command_count
         self.status_label.setText(
-            f"Success! {path_count} paths, {cmd_count} commands, "
-            f"{total_length:.1f}mm total length"
+            f"Success! {path_count} paths, {cmd_count} commands, {total_length:.1f}mm total length"
         )
 
         # Emit signal
@@ -875,8 +451,7 @@ class ImagePanel(QGroupBox):
         time_s = converter.estimate_execution_time(commands)
         time_m = time_s / 60
         self.status_label.setText(
-            f"Added {len(commands)} commands to queue "
-            f"(est. {time_m:.1f} minutes)"
+            f"Added {len(commands)} commands to queue (est. {time_m:.1f} minutes)"
         )
 
     # === Public Methods ===

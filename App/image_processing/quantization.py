@@ -35,9 +35,7 @@ def quantize_colors(
     elif method == "median_cut":
         return quantize_pillow(rgb_image, num_colors, method=Image.Quantize.MEDIANCUT)
     elif method == "octree":
-        return quantize_pillow(
-            rgb_image, num_colors, method=Image.Quantize.FASTOCTREE
-        )
+        return quantize_pillow(rgb_image, num_colors, method=Image.Quantize.FASTOCTREE)
     else:
         # Default to kmeans
         return quantize_kmeans(rgb_image, num_colors)

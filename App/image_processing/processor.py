@@ -107,9 +107,7 @@ class ImageProcessor:
         Returns:
             Tuple of (scaled paths, scale_factor, offset_x, offset_y)
         """
-        return scale_paths_to_machine(
-            paths, image_width, image_height, self.machine_config
-        )
+        return scale_paths_to_machine(paths, image_width, image_height, self.machine_config)
 
     def calculate_total_length(self, paths) -> float:
         """Calculate total path length in mm."""
@@ -142,8 +140,7 @@ class ImageProcessor:
             image, self.machine_config
         )
         print(
-            f"Scaled image to {scaled_image.size[0]}x{scaled_image.size[1]} "
-            f"pixels for machine fit."
+            f"Scaled image to {scaled_image.size[0]}x{scaled_image.size[1]} pixels for machine fit."
         )
 
         # Check rendering style
@@ -159,19 +156,13 @@ class ImageProcessor:
             )
         elif style == RenderStyle.HATCHING:
             print("Rendering hatching style...")
-            paths = render_hatching(
-                scaled_image, offset_x, offset_y, self.processing_config
-            )
+            paths = render_hatching(scaled_image, offset_x, offset_y, self.processing_config)
         elif style == RenderStyle.CROSS_HATCH:
             print("Rendering cross-hatch style...")
-            paths = render_cross_hatch(
-                scaled_image, offset_x, offset_y, self.processing_config
-            )
+            paths = render_cross_hatch(scaled_image, offset_x, offset_y, self.processing_config)
         else:
             # just error for now
-            raise NotImplementedError(
-                f"Render style {style} not implemented in this snippet."
-            )
+            raise NotImplementedError(f"Render style {style} not implemented in this snippet.")
 
         # DEBUG: Save intermediate SVG for inspection
         debug_svg = colored_paths_to_svg(

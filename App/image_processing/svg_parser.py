@@ -71,9 +71,7 @@ def extract_paths(svg_content: str) -> "list[ColoredPath]":
             color=color,
             is_closed=is_closed,
         )
-        print(
-            f"Added colored path with color {color} and {len(points)} points."
-        )
+        print(f"Added colored path with color {color} and {len(points)} points.")
 
         colored_paths.append(new_colored_path)
 
@@ -167,8 +165,7 @@ def colored_paths_to_svg(
         SVG content as string
     """
     svg_elements = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{svg_width}" height="{svg_height}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width}" height="{svg_height}">'
     ]
 
     for path in colored_paths:
@@ -177,9 +174,7 @@ def colored_paths_to_svg(
         color_hex = f"#{r:02x}{g:02x}{b:02x}"
 
         # Create path data
-        path_data = "M " + " L ".join(
-            f"{x:.2f} {y:.2f}" for x, y in path.points
-        )
+        path_data = "M " + " L ".join(f"{x:.2f} {y:.2f}" for x, y in path.points)
 
         stroke_style = "none"
 
@@ -189,9 +184,7 @@ def colored_paths_to_svg(
             # if open, add a stroke to make it visible
             stroke_style = color_hex
 
-        svg_elements.append(
-            f'<path d="{path_data}" fill="{color_hex}" stroke="{stroke_style}" />'
-        )
+        svg_elements.append(f'<path d="{path_data}" fill="{color_hex}" stroke="{stroke_style}" />')
 
     svg_elements.append("</svg>")
     return "\n".join(svg_elements)

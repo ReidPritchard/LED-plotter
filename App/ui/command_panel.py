@@ -1,7 +1,6 @@
 """Command input and control panel."""
 
 from PyQt6.QtWidgets import (
-    QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -11,6 +10,7 @@ from PyQt6.QtWidgets import (
 )
 
 from models import MachineConfig
+from ui.widgets import WidgetFactory
 
 
 class CommandPanel(QGroupBox):
@@ -43,27 +43,24 @@ class CommandPanel(QGroupBox):
         move_layout = QHBoxLayout()
         move_layout.addWidget(QLabel("Move to:"))
 
-        # AIDEV-NOTE: Coordinate inputs with bounds validation
-        # from machine_config
-        self.move_x_input = QDoubleSpinBox()
-        self.move_x_input.setRange(
+        # AIDEV-NOTE: Coordinate inputs with bounds validation from machine_config
+        self.move_x_input = WidgetFactory.create_double_spinbox(
             self.machine_config.safe_margin,
             self.machine_config.width - self.machine_config.safe_margin,
+            self.machine_config.width / 2.0,
+            " mm",
+            decimals=1,
         )
-        self.move_x_input.setValue(self.machine_config.width / 2.0)
-        self.move_x_input.setSuffix(" mm")
-        self.move_x_input.setDecimals(1)
         move_layout.addWidget(QLabel("X:"))
         move_layout.addWidget(self.move_x_input)
 
-        self.move_y_input = QDoubleSpinBox()
-        self.move_y_input.setRange(
+        self.move_y_input = WidgetFactory.create_double_spinbox(
             self.machine_config.safe_margin,
             self.machine_config.height - self.machine_config.safe_margin,
+            self.machine_config.height / 2.0,
+            " mm",
+            decimals=1,
         )
-        self.move_y_input.setValue(self.machine_config.height / 2.0)
-        self.move_y_input.setSuffix(" mm")
-        self.move_y_input.setDecimals(1)
         move_layout.addWidget(QLabel("Y:"))
         move_layout.addWidget(self.move_y_input)
 
@@ -79,9 +76,7 @@ class CommandPanel(QGroupBox):
         custom_layout = QHBoxLayout()
         custom_layout.addWidget(QLabel("Custom:"))
         self.custom_input = QLineEdit()
-        self.custom_input.setPlaceholderText(
-            "Enter raw command (e.g., M 400 300)"
-        )
+        self.custom_input.setPlaceholderText("Enter raw command (e.g., M 400 300)")
         custom_layout.addWidget(self.custom_input)
 
         self.send_custom_btn = QPushButton("Send")

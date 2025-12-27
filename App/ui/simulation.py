@@ -9,6 +9,7 @@ from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QCheckBox, QSlider
 
 from models import ColoredPath, MachineConfig, PlotterState
+from ui.styles import ThemeColors
 
 
 class SimulationCanvas(QtWidgets.QWidget):
@@ -91,9 +92,7 @@ class SimulationCanvas(QtWidgets.QWidget):
 
         return screen_x, screen_y
 
-    def _calculate_cable_lengths(
-        self, x: float, y: float
-    ) -> Tuple[float, float]:
+    def _calculate_cable_lengths(self, x: float, y: float) -> Tuple[float, float]:
         """
         Calculate cable lengths for a given XY position.
 
@@ -110,13 +109,13 @@ class SimulationCanvas(QtWidgets.QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Background
-        painter.fillRect(self.rect(), QColor(20, 20, 20))
+        painter.fillRect(self.rect(), ThemeColors.BACKGROUND_DARK)
 
         # Draw machine frame (top bar where motors are mounted)
         left_motor = self._world_to_screen(0, 0)
         right_motor = self._world_to_screen(self.machine_config.width, 0)
 
-        painter.setPen(QPen(QColor(60, 60, 60), 4))
+        painter.setPen(QPen(ThemeColors.MACHINE_FRAME, 4))
         painter.drawLine(
             int(left_motor[0]),
             int(left_motor[1]),
@@ -126,7 +125,7 @@ class SimulationCanvas(QtWidgets.QWidget):
 
         # Draw motors (circles at top corners)
         motor_radius = 8
-        painter.setBrush(QBrush(QColor(40, 40, 40)))
+        painter.setBrush(QBrush(ThemeColors.MOTOR_BODY))
         painter.drawEllipse(
             int(left_motor[0] - motor_radius),
             int(left_motor[1] - motor_radius),
@@ -148,20 +147,14 @@ class SimulationCanvas(QtWidgets.QWidget):
                 self.machine_config.width - margin,
                 self.machine_config.height - margin,
             )
-            painter.setPen(
-                QPen(QColor(100, 200, 100), 2, Qt.PenStyle.DashLine)
-            )
+            painter.setPen(QPen(ThemeColors.SAFE_AREA_BORDER, 2, Qt.PenStyle.DashLine))
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(
-                int(tl[0]), int(tl[1]), int(br[0] - tl[0]), int(br[1] - tl[1])
-            )
+            painter.drawRect(int(tl[0]), int(tl[1]), int(br[0] - tl[0]), int(br[1] - tl[1]))
 
         # Draw work area boundary
         tl_work = self._world_to_screen(0, 0)
-        br_work = self._world_to_screen(
-            self.machine_config.width, self.machine_config.height
-        )
-        painter.setPen(QPen(QColor(150, 150, 150), 1))
+        br_work = self._world_to_screen(self.machine_config.width, self.machine_config.height)
+        painter.setPen(QPen(ThemeColors.WORK_AREA, 1))
         painter.drawRect(
             int(tl_work[0]),
             int(tl_work[1]),
@@ -171,14 +164,14 @@ class SimulationCanvas(QtWidgets.QWidget):
 
         # Draw cables from motors to gondola
         gondola_pos = self._world_to_screen(self.sim_x, self.sim_y)
-        painter.setPen(QPen(QColor(200, 100, 100), 2))
+        painter.setPen(QPen(ThemeColors.CABLE_LEFT, 2))
         painter.drawLine(
             int(left_motor[0]),
             int(left_motor[1]),
             int(gondola_pos[0]),
             int(gondola_pos[1]),
         )
-        painter.setPen(QPen(QColor(100, 100, 200), 2))
+        painter.setPen(QPen(ThemeColors.CABLE_RIGHT, 2))
         painter.drawLine(
             int(right_motor[0]),
             int(right_motor[1]),
@@ -189,18 +182,14 @@ class SimulationCanvas(QtWidgets.QWidget):
         # Draw path trail
         if self.show_trail and len(self.path_trail) > 1:
             path = QPainterPath()
-            first_point = self._world_to_screen(
-                self.path_trail[0][0], self.path_trail[0][1]
-            )
+            first_point = self._world_to_screen(self.path_trail[0][0], self.path_trail[0][1])
             path.moveTo(QPointF(first_point[0], first_point[1]))
 
             for i in range(1, len(self.path_trail)):
-                screen_pos = self._world_to_screen(
-                    self.path_trail[i][0], self.path_trail[i][1]
-                )
+                screen_pos = self._world_to_screen(self.path_trail[i][0], self.path_trail[i][1])
                 path.lineTo(QPointF(screen_pos[0], screen_pos[1]))
 
-            painter.setPen(QPen(QColor(0, 150, 0), 1.5))
+            painter.setPen(QPen(ThemeColors.TRAIL_PATH, 1.5))
             painter.drawPath(path)
 
         # Draw preview paths from image processing
@@ -236,9 +225,7 @@ class SimulationCanvas(QtWidgets.QWidget):
         r, g, b = self.led_color
         painter.setBrush(QBrush(QColor(r, g, b)))
         # Darker border (80% of LED color)
-        painter.setPen(
-            QPen(QColor(int(r * 0.8), int(g * 0.8), int(b * 0.8)), 2)
-        )
+        painter.setPen(QPen(QColor(int(r * 0.8), int(g * 0.8), int(b * 0.8)), 2))
         painter.drawEllipse(
             int(gondola_pos[0] - gondola_radius),
             int(gondola_pos[1] - gondola_radius),
@@ -247,13 +234,9 @@ class SimulationCanvas(QtWidgets.QWidget):
         )
 
         # Draw cable lengths as text
-        left_cable, right_cable = self._calculate_cable_lengths(
-            self.sim_x, self.sim_y
-        )
+        left_cable, right_cable = self._calculate_cable_lengths(self.sim_x, self.sim_y)
         painter.setPen(QPen(QColor(255, 255, 255), 1))
-        painter.drawText(
-            10, 20, f"Sim Position: ({self.sim_x:.1f}, {self.sim_y:.1f}) mm"
-        )
+        painter.drawText(10, 20, f"Sim Position: ({self.sim_x:.1f}, {self.sim_y:.1f}) mm")
         painter.drawText(10, 40, f"Left Cable: {left_cable:.1f} mm")
         painter.drawText(10, 60, f"Right Cable: {right_cable:.1f} mm")
 
@@ -498,9 +481,7 @@ class SimulationUI(QtWidgets.QWidget):
 
     def _move_to_home(self):
         """Move simulation to home (center) position."""
-        self.move_to(
-            self.machine_config.width / 2.0, self.machine_config.height / 2.0
-        )
+        self.move_to(self.machine_config.width / 2.0, self.machine_config.height / 2.0)
 
     def _move_to_tl(self):
         """Move to top-left corner (within safe margin)."""
@@ -533,9 +514,7 @@ class SimulationUI(QtWidgets.QWidget):
         """
         self.plotter_state = plotter_state
         # Update canvas to show hardware position
-        self.canvas.set_position(
-            plotter_state.position_x, plotter_state.position_y
-        )
+        self.canvas.set_position(plotter_state.position_x, plotter_state.position_y)
 
     def execute_command_queue(self):
         """
@@ -616,9 +595,7 @@ class SimulationUI(QtWidgets.QWidget):
                         r = int(parts[3])
                         g = int(parts[4])
                         b = int(parts[5])
-                        print(
-                            f"Simulating move to ({x}, {y}) with LED color ({r}, {g}, {b})"
-                        )
+                        print(f"Simulating move to ({x}, {y}) with LED color ({r}, {g}, {b})")
                         self.canvas.set_led_color(r, g, b)
                     else:
                         print(f"Simulating move to ({x}, {y})")

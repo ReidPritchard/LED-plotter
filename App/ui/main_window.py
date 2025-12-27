@@ -1,12 +1,10 @@
 """Main application window for plotter control."""
 
-import json
-from dataclasses import asdict
 from typing import Optional
 
 import serial.tools.list_ports  # Import for port listing
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QAction, QFont
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QComboBox,
     QDockWidget,
@@ -18,10 +16,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from config_manager import ConfigManager
 from models import (
-    CONFIG_FILE,
     ConnectionState,
-    MachineConfig,
     PlotterState,
     ProcessedImage,
 )
@@ -31,6 +28,7 @@ from ui.console_panel import ConsolePanel
 from ui.image_panel import ImagePanel
 from ui.queue_panel import QueuePanel
 from ui.settings_dialog import SettingsDialog
+from ui.styles import FONTS, StatusColors
 from ui.simulation import SimulationUI
 from ui.state_panel import StatePanel
 
@@ -44,11 +42,10 @@ class PlotterControlWindow(QMainWindow):
         self.setMinimumSize(1000, 800)
 
         # Application state
-        self.machine_config = MachineConfig()
-        self._load_config()  # Load saved config if available
+        self.config_manager = ConfigManager()
+        self.machine_config = self.config_manager.load()
         self.plotter_state = PlotterState()
         self.serial_thread: Optional[SerialThread] = None
-        self.command_queue = []  # Display queue
 
         self._setup_ui()
         self._connect_signals()
@@ -278,8 +275,8 @@ class PlotterControlWindow(QMainWindow):
 
         # Connection status indicator
         self.status_label = QLabel("●")
-        self.status_label.setFont(QFont("Arial", 16))
-        self.status_label.setStyleSheet("color: gray;")
+        self.status_label.setFont(FONTS.STATUS_INDICATOR)
+        self.status_label.setStyleSheet(f"color: {StatusColors.DISCONNECTED};")
         self.status_label.setToolTip("Connection status")
         toolbar.addWidget(self.status_label)
 
@@ -292,21 +289,15 @@ class PlotterControlWindow(QMainWindow):
         """Connect all UI signals to handlers."""
 
         # State panel
-        self.state_panel.status_btn.clicked.connect(
-            lambda: self._send_command("?")
-        )
+        self.state_panel.status_btn.clicked.connect(lambda: self._send_command("?"))
 
         # Queue panel
         self.queue_panel.clear_btn.clicked.connect(self._clear_queue)
-        self.queue_panel.send_next_btn.clicked.connect(
-            self._send_next_in_queue
-        )
+        self.queue_panel.send_next_btn.clicked.connect(self._send_next_in_queue)
         self.queue_panel.send_all_btn.clicked.connect(self._send_all_in_queue)
 
         # Command panel
-        self.command_panel.home_btn.clicked.connect(
-            lambda: self._queue_command("G28")
-        )
+        self.command_panel.home_btn.clicked.connect(lambda: self._queue_command("G28"))
         self.command_panel.test_btn.clicked.connect(
             lambda:
             # AIDEV-NOTE: Queue commands to draw a colorful test
@@ -323,28 +314,16 @@ class PlotterControlWindow(QMainWindow):
                 ]
             )
         )
-        self.command_panel.calibrate_btn.clicked.connect(
-            lambda: self._queue_command("C")
-        )
-        self.command_panel.queue_move_btn.clicked.connect(
-            self._queue_move_command
-        )
-        self.command_panel.move_now_btn.clicked.connect(
-            self._send_move_command
-        )
-        self.command_panel.custom_input.returnPressed.connect(
-            self._send_custom_command
-        )
-        self.command_panel.send_custom_btn.clicked.connect(
-            self._send_custom_command
-        )
+        self.command_panel.calibrate_btn.clicked.connect(lambda: self._queue_command("C"))
+        self.command_panel.queue_move_btn.clicked.connect(self._queue_move_command)
+        self.command_panel.move_now_btn.clicked.connect(self._send_move_command)
+        self.command_panel.custom_input.returnPressed.connect(self._send_custom_command)
+        self.command_panel.send_custom_btn.clicked.connect(self._send_custom_command)
 
         # Image panel
         self.image_panel.processing_complete.connect(self._on_image_processed)
         self.image_panel.preview_requested.connect(self._on_preview_requested)
-        self.image_panel.add_to_queue_requested.connect(
-            self._queue_image_commands
-        )
+        self.image_panel.add_to_queue_requested.connect(self._queue_image_commands)
 
     # === Settings Dialog ===
 
@@ -377,8 +356,7 @@ class PlotterControlWindow(QMainWindow):
                     "Changing machine dimensions while connected may cause "
                     "unexpected behavior or damage.\n\n"
                     "Are you sure you want to apply these settings?",
-                    QMessageBox.StandardButton.Yes
-                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
                 )
                 if reply == QMessageBox.StandardButton.No:
@@ -392,7 +370,16 @@ class PlotterControlWindow(QMainWindow):
             self.command_panel.update_move_bounds(self.machine_config)
 
             # Save to file for persistence
-            self._save_config()
+            success, error = self.config_manager.save(self.machine_config)
+            if not success:
+                self.console_panel.append(f"❌ Error saving config: {error}")
+                QMessageBox.warning(
+                    self,
+                    "Save Error",
+                    f"Could not save configuration:\n{error}",
+                )
+            else:
+                self.console_panel.append("✓ Configuration saved")
 
             self.console_panel.append(
                 f"✓ Configuration applied: "
@@ -407,9 +394,7 @@ class PlotterControlWindow(QMainWindow):
 
         ports = serial.tools.list_ports.comports()
         for port in ports:
-            self.port_combo.addItem(
-                f"{port.device} - {port.description}", port.device
-            )
+            self.port_combo.addItem(f"{port.device} - {port.description}", port.device)
         if not ports:
             self.port_combo.addItem("No ports found", None)
 
@@ -426,9 +411,7 @@ class PlotterControlWindow(QMainWindow):
         """Establish serial connection."""
         port = self.port_combo.currentData()
         if not port:
-            QMessageBox.warning(
-                self, "No Port Selected", "Please select a valid serial port."
-            )
+            QMessageBox.warning(self, "No Port Selected", "Please select a valid serial port.")
             return
 
         self.plotter_state.connection = ConnectionState.CONNECTING
@@ -436,9 +419,7 @@ class PlotterControlWindow(QMainWindow):
 
         self.serial_thread = SerialThread(port)
         self.serial_thread.response_received.connect(self._handle_response)
-        self.serial_thread.connection_changed.connect(
-            self._handle_connection_change
-        )
+        self.serial_thread.connection_changed.connect(self._handle_connection_change)
         self.serial_thread.error_occurred.connect(self._handle_error)
         self.serial_thread.start()
 
@@ -461,9 +442,7 @@ class PlotterControlWindow(QMainWindow):
         self._update_connection_state()
 
         if state == ConnectionState.CONNECTED:
-            self.console_panel.append(
-                "✓ Connected! Requesting initial status..."
-            )
+            self.console_panel.append("✓ Connected! Requesting initial status...")
             # Request initial status
             QTimer.singleShot(1000, lambda: self._send_command("?"))
 
@@ -476,34 +455,32 @@ class PlotterControlWindow(QMainWindow):
             self.connect_btn.setText("Disconnect")
             self.connect_btn.setEnabled(True)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: green;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.CONNECTED};")
             self.status_label.setToolTip("Connected")
         elif state == ConnectionState.CONNECTING:
             self.connect_btn.setText("Connecting...")
             self.connect_btn.setEnabled(False)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: orange;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.CONNECTING};")
             self.status_label.setToolTip("Connecting...")
         elif state == ConnectionState.ERROR:
             self.connect_btn.setText("Connect")
             self.connect_btn.setEnabled(True)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: red;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.ERROR};")
             self.status_label.setToolTip("Connection Error")
         else:  # DISCONNECTED
             self.connect_btn.setText("Connect")
             self.connect_btn.setEnabled(True)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: gray;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.DISCONNECTED};")
             self.status_label.setToolTip("Disconnected")
 
     # === Command Management ===
 
     def _queue_command(self, command: str):
-        """Add command to the display queue."""
-        self.command_queue.append(command)
+        """Add command to the queue."""
         self.queue_panel.add_command(command)
-        # self.console_panel.append(f"Queued: {command}")
 
     def _queue_command_multiple(self, commands: "list[str]"):
         """Add multiple commands to the display queue."""
@@ -532,9 +509,7 @@ class PlotterControlWindow(QMainWindow):
     def _send_command(self, command: str):
         """Send command to Arduino immediately."""
         if not self.serial_thread or not self.serial_thread.isRunning():
-            QMessageBox.warning(
-                self, "Not Connected", "Please connect to a serial port first."
-            )
+            QMessageBox.warning(self, "Not Connected", "Please connect to a serial port first.")
             return
 
         self.serial_thread.send_command(command)
@@ -542,16 +517,13 @@ class PlotterControlWindow(QMainWindow):
 
     def _send_next_in_queue(self):
         """Send the next command in the queue."""
-        if not self.command_queue:
-            return
-
-        command = self.command_queue.pop(0)
-        self.queue_panel.remove_first()
-        self._send_command(command)
+        command = self.queue_panel.pop_first()
+        if command:
+            self._send_command(command)
 
     def _send_all_in_queue(self):
         """Send all queued commands with flow control."""
-        count = len(self.command_queue)
+        count = self.queue_panel.count()
         if count == 0:
             return
 
@@ -561,12 +533,11 @@ class PlotterControlWindow(QMainWindow):
             f"📤 Sending {count} commands (flow-controlled, may take time)..."
         )
 
-        while self.command_queue:
+        while self.queue_panel.count() > 0:
             self._send_next_in_queue()
 
     def _clear_queue(self):
         """Clear all queued commands."""
-        self.command_queue.clear()
         self.queue_panel.clear()
         self.console_panel.append("Queue cleared.")
 
@@ -633,9 +604,7 @@ class PlotterControlWindow(QMainWindow):
         """Show processed paths in simulation canvas."""
         # AIDEV-NOTE: Pass paths to simulation for colored preview
         self.simulation_ui.set_preview_paths(processed_image.paths)
-        self.console_panel.append(
-            f"🔍 Preview loaded: {len(processed_image.paths)} paths"
-        )
+        self.console_panel.append(f"🔍 Preview loaded: {len(processed_image.paths)} paths")
         # Bring simulation panel to front
         self.simulation_dock.raise_()
 
@@ -643,40 +612,9 @@ class PlotterControlWindow(QMainWindow):
         """Add image-generated commands to queue."""
         for command in commands:
             self._queue_command(command)
-        self.console_panel.append(
-            f"➕ Added {len(commands)} commands from image to queue"
-        )
+        self.console_panel.append(f"➕ Added {len(commands)} commands from image to queue")
 
     # === Configuration Management ===
-
-    def _load_config(self):
-        """Load machine configuration from file."""
-        try:
-            if CONFIG_FILE.exists():
-                with open(CONFIG_FILE, "r") as f:
-                    data = json.load(f)
-                    self.machine_config.width = data.get("width", 800.0)
-                    self.machine_config.height = data.get("height", 600.0)
-                    self.machine_config.safe_margin = data.get(
-                        "safe_margin", 50.0
-                    )
-                print(f"✓ Loaded configuration from {CONFIG_FILE}")
-        except Exception as e:
-            print(f"Warning: Could not load config file: {e}")
-
-    def _save_config(self):
-        """Save machine configuration to file."""
-        try:
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(asdict(self.machine_config), f, indent=2)
-            self.console_panel.append(
-                f"✓ Configuration saved to {CONFIG_FILE}"
-            )
-        except Exception as e:
-            self.console_panel.append(f"❌ Error saving config: {e}")
-            QMessageBox.warning(
-                self, "Save Error", f"Could not save configuration:\n{e}"
-            )
 
     # === Application Lifecycle ===
 

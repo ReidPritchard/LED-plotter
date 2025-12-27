@@ -1,7 +1,8 @@
 """Console output panel."""
 
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QGroupBox, QPushButton, QTextEdit, QVBoxLayout
+
+from ui.styles import FONTS, SIZES
 
 
 class ConsolePanel(QGroupBox):
@@ -17,8 +18,9 @@ class ConsolePanel(QGroupBox):
 
         self.console = QTextEdit()
         self.console.setReadOnly(True)
-        self.console.setMaximumHeight(150)
-        self.console.setFont(QFont("Courier", 9))
+        # AIDEV-NOTE: Use minimum height only - let dock widget handle sizing
+        self.console.setMinimumHeight(SIZES.CONSOLE_MIN_HEIGHT)
+        self.console.setFont(FONTS.CONSOLE)
         layout.addWidget(self.console)
 
         clear_console_btn = QPushButton("Clear Console")

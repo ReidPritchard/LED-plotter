@@ -165,9 +165,7 @@ class PathToCommandsConverter:
 
         return total
 
-    def validate_commands(
-        self, commands: "list[str]"
-    ) -> "tuple[bool, list[str]]":
+    def validate_commands(self, commands: "list[str]") -> "tuple[bool, list[str]]":
         """Validate all commands are within safe bounds.
 
         Args:
@@ -197,14 +195,12 @@ class PathToCommandsConverter:
 
                         if x < min_x or x > max_x:
                             errors.append(
-                                f"Command {i}: X={x:.1f} out of bounds "
-                                f"({min_x:.1f} to {max_x:.1f})"
+                                f"Command {i}: X={x:.1f} out of bounds ({min_x:.1f} to {max_x:.1f})"
                             )
 
                         if y < min_y or y > max_y:
                             errors.append(
-                                f"Command {i}: Y={y:.1f} out of bounds "
-                                f"({min_y:.1f} to {max_y:.1f})"
+                                f"Command {i}: Y={y:.1f} out of bounds ({min_y:.1f} to {max_y:.1f})"
                             )
 
                         # Validate RGB if present
@@ -215,30 +211,17 @@ class PathToCommandsConverter:
                                     int(parts[4]),
                                     int(parts[5]),
                                 )
-                                if not (
-                                    0 <= r <= 255
-                                    and 0 <= g <= 255
-                                    and 0 <= b <= 255
-                                ):
-                                    errors.append(
-                                        f"Command {i}: RGB values out of "
-                                        f"range (0-255)"
-                                    )
+                                if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
+                                    errors.append(f"Command {i}: RGB values out of range (0-255)")
                             except ValueError:
-                                errors.append(
-                                    f"Command {i}: Invalid RGB values"
-                                )
+                                errors.append(f"Command {i}: Invalid RGB values")
 
                     except ValueError:
-                        errors.append(
-                            f"Command {i}: Invalid coordinate format"
-                        )
+                        errors.append(f"Command {i}: Invalid coordinate format")
 
         return len(errors) == 0, errors
 
-    def optimize_path_order(
-        self, paths: list[ColoredPath]
-    ) -> list[ColoredPath]:
+    def optimize_path_order(self, paths: list[ColoredPath]) -> list[ColoredPath]:
         """Reorder paths to minimize travel distance.
 
         Uses a simple nearest-neighbor heuristic.

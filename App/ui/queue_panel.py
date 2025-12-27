@@ -42,8 +42,19 @@ class QueuePanel(QGroupBox):
         """Add a command to the queue display."""
         self.queue_list.addItem(command)
 
+    def count(self) -> int:
+        """Get number of commands in queue."""
+        return self.queue_list.count()
+
+    def pop_first(self) -> str | None:
+        """Remove and return first command, or None if empty."""
+        if self.queue_list.count() > 0:
+            item = self.queue_list.takeItem(0)
+            return item.text() if item else None
+        return None
+
     def remove_first(self):
-        """Remove the first command from the queue display."""
+        """Remove the first command from the queue display (deprecated - use pop_first)."""
         if self.queue_list.count() > 0:
             self.queue_list.takeItem(0)
 
@@ -57,7 +68,6 @@ class QueuePanel(QGroupBox):
 
     def get_all_commands(self) -> "list[str]":
         """Get all commands currently in the queue display."""
-        print(self.queue_list.count())
         commands = []
         for i in range(self.queue_list.count()):
             item = self.queue_list.item(i)

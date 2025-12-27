@@ -1,6 +1,5 @@
 """Serial connection control panel."""
 
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QComboBox,
     QGroupBox,
@@ -8,6 +7,8 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
 )
+
+from ui.styles import FONTS, StatusColors
 
 # Try to import serial, gracefully handle if not installed
 try:
@@ -46,7 +47,7 @@ class ConnectionPanel(QGroupBox):
 
         # Connection status indicator
         self.status_label = QLabel("●")
-        self.status_label.setFont(QFont("Arial", 16))
+        self.status_label.setFont(FONTS.STATUS_INDICATOR)
         layout.addWidget(self.status_label)
 
         layout.addStretch()
@@ -58,9 +59,7 @@ class ConnectionPanel(QGroupBox):
         if SERIAL_AVAILABLE:
             ports = serial.tools.list_ports.comports()  # type: ignore
             for port in ports:
-                self.port_combo.addItem(
-                    f"{port.device} - {port.description}", port.device
-                )
+                self.port_combo.addItem(f"{port.device} - {port.description}", port.device)
             if not ports:
                 self.port_combo.addItem("No ports found", None)
         else:
@@ -70,27 +69,25 @@ class ConnectionPanel(QGroupBox):
         """Get the currently selected port."""
         return self.port_combo.currentData()
 
-    def update_status(
-        self, connected: bool, connecting: bool = False, error: bool = False
-    ):
+    def update_status(self, connected: bool, connecting: bool = False, error: bool = False):
         """Update the visual connection status."""
         if connected:
             self.connect_btn.setText("Disconnect")
             self.connect_btn.setEnabled(True)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: green;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.CONNECTED};")
         elif connecting:
             self.connect_btn.setText("Connecting...")
             self.connect_btn.setEnabled(False)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: orange;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.CONNECTING};")
         elif error:
             self.connect_btn.setText("Connect")
             self.connect_btn.setEnabled(True)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: red;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.ERROR};")
         else:  # Disconnected
             self.connect_btn.setText("Connect")
             self.connect_btn.setEnabled(True)
             self.status_label.setText("●")
-            self.status_label.setStyleSheet("color: gray;")
+            self.status_label.setStyleSheet(f"color: {StatusColors.DISCONNECTED};")
