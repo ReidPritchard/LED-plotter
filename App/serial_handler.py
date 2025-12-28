@@ -115,6 +115,10 @@ class SerialThread(QThread):
         if self.waiting_for_ack:
             return
 
+        # Guard: ensure serial port is connected
+        if self.serial_port is None:
+            return
+
         # Fast path: no commands
         if not self.command_queue:
             return

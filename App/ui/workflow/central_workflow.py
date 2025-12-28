@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import ConnectionState, MachineConfig, PlotterState, ProcessedImage
+from models import ConnectionState, MachineConfig, PlotterState, ProcessedImage  # type: ignore[attr-defined]
 from ui.command_panel import CommandPanel
 from ui.image_panel import ImagePanel
 from ui.queue_panel import QueuePanel

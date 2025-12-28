@@ -4,6 +4,21 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+__all__ = [
+    "MACHINE_WIDTH",
+    "MACHINE_HEIGHT",
+    "SAFE_MARGIN",
+    "CONFIG_FILE",
+    "TEMP_SVG_PATH",
+    "ConnectionState",
+    "RenderStyle",
+    "MachineConfig",
+    "PlotterState",
+    "ColoredPath",
+    "ImageProcessingConfig",
+    "ProcessedImage",
+]
+
 # AIDEV-NOTE: Hardware constants from Arduino firmware - keep in sync
 MACHINE_WIDTH = 800.0  # mm
 MACHINE_HEIGHT = 600.0  # mm

@@ -20,16 +20,48 @@ LED-plotter/
 ├── App/                          # PyQt6 desktop application
 │   ├── app.py                    # Main entry point
 │   ├── models.py                 # Data models and constants
+│   ├── config_manager.py         # Configuration persistence handler
 │   ├── serial_handler.py         # Background serial communication
+│   ├── path_to_commands.py       # SVG path to plotter command converter
 │   ├── ui/                       # Modular UI components
 │   │   ├── main_window.py        # Main window coordinator
-│   │   ├── connection_panel.py   # Serial connection controls
+│   │   ├── workflow/             # Step-based workflow system
+│   │   │   ├── central_workflow.py   # Workflow state machine
+│   │   │   ├── step_bar.py           # Progress indicator
+│   │   │   ├── models.py             # Workflow data models
+│   │   │   └── pages/                # Workflow pages
+│   │   │       ├── connect_page.py   # Serial connection step
+│   │   │       ├── import_page.py    # Image import step
+│   │   │       ├── preview_page.py   # Preview & rendering controls
+│   │   │       ├── send_page.py      # Command sending step
+│   │   │       └── dashboard_page.py # Status dashboard
+│   │   ├── components/           # Reusable UI components
+│   │   │   ├── stipple_controls.py   # Stippling parameter controls
+│   │   │   ├── hatching_controls.py  # Hatching parameter controls
+│   │   │   └── cross_hatch_controls.py # Cross-hatch controls
+│   │   ├── connection_panel.py   # Serial connection controls (legacy)
 │   │   ├── config_panel.py       # Machine configuration
 │   │   ├── state_panel.py        # Hardware state display
 │   │   ├── command_panel.py      # Command input
 │   │   ├── queue_panel.py        # Command queue visualization
-│   │   └── console_panel.py      # Serial console output
+│   │   ├── console_panel.py      # Serial console output
+│   │   ├── image_panel.py        # Image import and processing
+│   │   ├── simulation.py         # Simulation canvas
+│   │   ├── settings_dialog.py    # Settings dialog
+│   │   ├── styles.py             # Shared UI styling
+│   │   └── widgets.py            # Shared custom widgets
+│   ├── image_processing/         # Image processing pipeline
+│   │   ├── processor.py          # Main processing coordinator
+│   │   ├── quantization.py       # Color quantization
+│   │   ├── rendering.py          # Stippling/hatching rendering
+│   │   ├── svg_parser.py         # SVG path parsing
+│   │   └── utils.py              # Shared utilities
+│   ├── assets/                   # Application assets
+│   │   └── app_icon.icns         # macOS app icon
 │   ├── pixi.toml                 # Pixi package manager config
+│   ├── pixi.lock                 # Locked dependencies
+│   ├── ruff.toml                 # Ruff linter configuration
+│   ├── .pre-commit-config.yaml   # Pre-commit hooks
 │   └── CLAUDE.md                 # Detailed App-specific documentation
 └── Arduino/
     └── simple-led-plotter.ino    # Firmware for stepper motor control
@@ -61,7 +93,7 @@ pixi run python app.py    # Launch GUI
 
 ## Implementation Status
 
-> **Version**: 0.1.0 (early alpha) | **Last Updated**: December 2025
+> **Version**: 0.1.0 (early alpha) | **Last Updated**: December 28, 2025
 
 ### Core Features
 
@@ -71,32 +103,41 @@ pixi run python app.py    # Launch GUI
 | Real-time position display | ✅ Done | Parses Arduino responses |
 | Command queue | ✅ Done | Queue/send/clear workflow |
 | Dockable UI panels | ✅ Done | Flexible layout via View menu |
-| Simulation canvas | ✅ Done | Visual position tracking |
-| Configuration persistence | ✅ Done | `~/.polarplot_config.json` |
+| Simulation canvas | ✅ Done | Visual position tracking with preview alignment |
+| Configuration persistence | ✅ Done | `~/.polarplot_config.json` via config_manager |
 | Inverse kinematics (Arduino) | ✅ Done | Pythagorean calculation |
 | LED color interpolation | ✅ Done | `M x y r g b` command |
 | EEPROM calibration storage | ✅ Done | Persists STEPS_PER_MM |
+| **Workflow navigation** | ✅ Done | Step-based UI (Connect→Import→Preview→Send→Dashboard) |
+| **Image import & processing** | ✅ Done | Supports PNG/JPG with modular processing pipeline |
+| **SVG generation** | ✅ Done | Optimized path rendering for stippling/hatching |
+| **Rendering modes** | ✅ Done | Stippling, hatching, and cross-hatching controls |
+| **Pre-commit hooks** | ✅ Done | Code quality automation with Ruff |
 
 ### Not Yet Implemented
 
 | Feature | Priority | Notes |
 |---------|----------|-------|
 | Forward kinematics | Low | Complex; not currently needed |
-| SVG/G-code file import | Future | Drawing file parsing |
-| Drawing preview | Future | Show path before execution |
+| G-code file import | Future | Currently supports images only |
 | Automated testing | Medium | See App/CLAUDE.md for strategy |
 | Acceleration control | Low | Currently fixed speed |
+| Output upside-down fix | High | Current output is inverted (see README photos) |
 
-### Recent Changes
+### Recent Changes (December 2025)
 
-- **Dockable panels** - All UI panels now movable/hideable via View menu
-- **LED color interpolation** - Smooth color transitions during movement
-- **Extended M command** - Optional RGB values: `M x y [r g b]`
+- **Workflow navigation system** - Complete step-based workflow with visual progress indicators
+- **Component-based rendering controls** - Modular UI components for stipple/hatching parameters
+- **SVG optimization** - Improved path generation and rendering clarity
+- **Pre-commit configuration** - Added Ruff linting automation
+- **UI modernization** - Comprehensive styling system with shared widgets
+- **Config management** - Centralized configuration with JSON persistence
+- **Image processing pipeline** - Modularized quantization, rendering, and SVG parsing
 
 ### Development Phase
 
-**Current**: Hardware validation and basic functionality
-**Next**: Drawing features and file import
+**Current**: Feature-complete alpha with working image-to-plotter pipeline
+**Next**: Bug fixes (output orientation), performance optimization, testing framework
 
 ---
 

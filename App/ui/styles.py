@@ -107,3 +107,12 @@ def panel_stylesheet() -> str:
         f"border: 1px solid {ThemeColors.BORDER_DEFAULT}; "
         f"background-color: {ThemeColors.BACKGROUND_PANEL};"
     )
+
+
+def image_preview_stylesheet() -> str:
+    """Generate image preview panel stylesheet.
+
+    Returns:
+        CSS stylesheet string for image preview styling
+    """
+    return "border: 1px solid gray; background-color: black;"

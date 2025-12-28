@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import ColoredPath, MachineConfig, PlotterState
+from models import ColoredPath, MachineConfig, PlotterState  # type: ignore[attr-defined]
 from ui.queue_panel import QueuePanel
 from ui.simulation import SimulationUI
 

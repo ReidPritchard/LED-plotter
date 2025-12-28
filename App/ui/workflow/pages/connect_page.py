@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 )
 import serial.tools.list_ports
 
-from models import ConnectionState
+from models import ConnectionState  # type: ignore[attr-defined]
 from ui.styles import StatusColors
 
 

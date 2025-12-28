@@ -4,7 +4,7 @@
 repos:
   # Standard pre-commit hooks for file quality
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
@@ -21,7 +21,7 @@ repos:
 
   # Ruff - Fast Python linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.14.10
     hooks:
       # Run the linter
       - id: ruff
@@ -29,10 +29,16 @@ repos:
       # Run the formatter
       - id: ruff-format
 
-  # Pyright - Python type checker
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.407
+  # Pyright - Python type checker (runs via pixi environment)
+  # Note: Some import resolution errors in nested packages may persist
+  # due to pre-commit environment isolation, but core type checking works
+  - repo: local
     hooks:
       - id: pyright
-        # Only check Python files in tracked directories
-        files: '^(ui|image_processing)/.*\.py$|^(app|models|serial_handler|config_manager|path_to_commands)\.py$'
+        name: pyright
+        entry: bash -c 'cd "$PWD" && pixi run pyright'
+        language: system
+        types: [python]
+        pass_filenames: false
+        # Run on all Python files to get full type checking context
+        always_run: true

@@ -24,8 +24,12 @@ from models import (
     ProcessedImage,
 )
 from serial_handler import SerialThread
+from ui.command_panel import CommandPanel
 from ui.console_panel import ConsolePanel
+from ui.image_panel import ImagePanel
+from ui.queue_panel import QueuePanel
 from ui.settings_dialog import SettingsDialog
+from ui.simulation import SimulationUI
 from ui.state_panel import StatePanel
 from ui.styles import FONTS, StatusColors
 from ui.workflow import CentralWorkflowWidget, WorkflowStep
@@ -46,6 +50,16 @@ class PlotterControlWindow(QMainWindow):
         self.machine_config = self.config_manager.load()
         self.plotter_state = PlotterState()
         self.serial_thread: Optional[SerialThread] = None
+
+        # UI component references (created in _setup_ui) - type hints for static analysis
+        self.state_panel: StatePanel
+        self.console_panel: ConsolePanel
+        self.state_dock: QDockWidget
+        self.console_dock: QDockWidget
+        self.queue_panel: QueuePanel
+        self.command_panel: CommandPanel
+        self.image_panel: ImagePanel
+        self.simulation_ui: SimulationUI
 
         self._setup_ui()
         self._connect_signals()
@@ -178,9 +192,7 @@ class PlotterControlWindow(QMainWindow):
 
         for name, step in step_actions:
             action = QAction(name, self)
-            action.triggered.connect(
-                lambda checked, s=step: self.central_workflow.set_current_step(s)
-            )
+            action.triggered.connect(lambda _, s=step: self.central_workflow.set_current_step(s))
             view_menu.addAction(action)
             self.view_actions[name] = action
 

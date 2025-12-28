@@ -1,15 +1,23 @@
 {
-  "include": ["ui"],
-
-  "exclude": ["**/node_modules", "**/__pycache__"],
-
-  "defineConstant": {
-    "DEBUG": true
-  },
-
-  "reportMissingImports": "error",
-  "reportMissingTypeStubs": false,
-
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/node_modules",
+    ".pixi"
+  ],
   "pythonVersion": "3.12",
-  "pythonPlatform": "Linux"
+  "pythonPlatform": "Darwin",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.12"
+    }
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "stubPath": ""
 }

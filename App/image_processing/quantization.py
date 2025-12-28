@@ -56,12 +56,15 @@ def quantize_kmeans(
     pixels = img_array.reshape(-1, 3).astype(np.float64)
 
     # Fit KMeans
-    kmeans = KMeans(n_clusters=num_colors, random_state=42, n_init=10)
+    # AIDEV-NOTE: n_init="auto" is recommended in sklearn 1.4+
+    kmeans = KMeans(n_clusters=num_colors, random_state=42, n_init="auto")
     kmeans.fit(pixels)
 
     # Get cluster centers as palette
     centers = kmeans.cluster_centers_.astype(np.uint8)
-    palette = [tuple(int(c) for c in color) for color in centers]
+    palette: list[tuple[int, int, int]] = [
+        (int(color[0]), int(color[1]), int(color[2])) for color in centers
+    ]
 
     # Assign each pixel to nearest cluster
     labels = kmeans.labels_

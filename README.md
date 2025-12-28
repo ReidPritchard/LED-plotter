@@ -6,10 +6,18 @@ A hanging pen plotter system using polar kinematics to control a suspended drawi
 
 This project consists of two main components:
 
-1. **PyQt6 Desktop Application** - GUI controller for sending commands and visualizing plotter state
+1. **PyQt6 Desktop Application** - Complete workflow-based GUI for image import, processing, preview, and plotter control
 2. **Arduino Firmware** - Stepper motor control and kinematics calculations
 
-The system uses two stepper motors mounted at fixed positions to control cable lengths, positioning a gondola/pen holder in 2D space using polar coordinates.
+The system uses two stepper motors mounted at fixed positions to control cable lengths, positioning a gondola/LED holder in 2D space using polar coordinates. The LED creates light paintings when photographed with long exposure.
+
+### Key Features
+
+- **Workflow-based interface**: Guided step-by-step process (Connect → Import → Preview → Send → Dashboard)
+- **Image processing**: Import images and convert to plotter commands using stippling, hatching, or cross-hatching
+- **Real-time preview**: Visualize output before sending to hardware
+- **Multiple rendering modes**: Stippling, hatching, cross-hatching with customizable parameters
+- **Hardware simulation**: Test movements before executing on physical plotter
 
 ## Quick Start
 
@@ -37,12 +45,16 @@ Upload `Arduino/simple-led-plotter.ino` using Arduino IDE or arduino-cli.
 LED-plotter/
 ├── App/                          # PyQt6 desktop application
 │   ├── app.py                    # Main entry point
-│   ├── models.py                 # Data models and constants
-│   ├── serial_handler.py         # Background serial communication
-│   └── ui/                       # Modular UI components
+│   ├── config_manager.py         # Configuration persistence
+│   ├── ui/workflow/              # Step-based workflow system
+│   │   └── pages/                # Connect, Import, Preview, Send, Dashboard
+│   ├── ui/components/            # Reusable rendering controls
+│   ├── image_processing/         # Image-to-path processing pipeline
+│   └── assets/                   # Application resources
 ├── Arduino/
 │   └── simple-led-plotter.ino    # Firmware for stepper motor control
-└── CLAUDE.md                     # AI assistant onboarding
+├── CLAUDE.md                     # AI assistant onboarding (project-wide)
+└── App/CLAUDE.md                 # Python app development guide
 ```
 
 ## Hardware
@@ -56,6 +68,8 @@ LED-plotter/
 ### Photos
 
 #### Python App
+
+TODO: These need updating. The UI has changed pretty significantly since these were taken.
 
 ![Python App Image Import](docs/app-image-import.png)
 

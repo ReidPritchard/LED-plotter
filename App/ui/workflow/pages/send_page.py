@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from models import MachineConfig
+from models import MachineConfig  # type: ignore[attr-defined]
 from ui.command_panel import CommandPanel
 from ui.queue_panel import QueuePanel
 

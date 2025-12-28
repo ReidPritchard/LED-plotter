@@ -21,22 +21,29 @@
 
 **Complete:**
 
-- Modular panel-based UI architecture (8 panels)
+- Modular panel-based UI architecture (8+ panels)
+- Workflow-based navigation system (5 steps: Connect → Import → Preview → Send → Dashboard)
+- Component-based rendering controls (stippling, hatching, cross-hatching)
 - Dockable/hideable panels with View menu
 - Serial communication (threaded, non-blocking)
 - Real-time state parsing from Arduino
-- Configuration persistence (`~/.polarplot_config.json`)
-- Simulation canvas with kinematics visualization
+- Configuration persistence (`~/.polarplot_config.json` via ConfigManager)
+- Simulation canvas with kinematics visualization and preview alignment
+- Image processing pipeline (import, quantize, render, convert to commands)
+- SVG path generation and optimization
+- Shared UI styling system (styles.py) and custom widgets (widgets.py)
+- Pre-commit hooks for code quality (Ruff)
 
 **In Progress:**
 
 - Hardware validation with physical plotter
+- Bug fixes (output orientation - currently upside-down)
 
 **Not Started:**
 
-- Automated testing framework
-- File import (SVG, G-code)
-- Drawing path preview
+- Automated testing framework (pytest recommended)
+- G-code file import (currently supports images only)
+- Performance optimization for large images
 
 ---
 
@@ -105,6 +112,8 @@ pixi run python app.py       # Launch the PyQt6 GUI
 
 ```python
 from typing import Tuple
+from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtCore import pyqtSignal
 
 class PlotterController:
     """Controls communication with the hanging plotter hardware."""
@@ -131,29 +140,142 @@ class PlotterController:
         return self.send_command(command)
 ```
 
+**Workflow page pattern:**
+
+```python
+from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtCore import pyqtSignal
+
+class MyWorkflowPage(QWidget):
+    """Workflow page for a specific step."""
+
+    # Signals for workflow navigation
+    next_requested = pyqtSignal()
+    previous_requested = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Initialize UI components."""
+        layout = QVBoxLayout(self)
+        # Add widgets...
+
+    def on_enter(self):
+        """Called when page becomes active."""
+        # Update UI state, refresh data
+        pass
+
+    def on_exit(self):
+        """Called when leaving page."""
+        # Save state, cleanup
+        pass
+
+    def can_proceed(self) -> bool:
+        """Check if user can advance to next step."""
+        return True  # Implement validation logic
+```
+
+**Rendering control component pattern:**
+
+```python
+from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QSlider, QLabel
+from PyQt6.QtCore import pyqtSignal
+
+class MyRenderingControls(QGroupBox):
+    """Reusable control panel for rendering parameters."""
+
+    # Signal emitted when parameters change
+    parameters_changed = pyqtSignal(dict)
+
+    def __init__(self, parent=None):
+        super().__init__("My Rendering Mode", parent)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Initialize controls."""
+        layout = QVBoxLayout(self)
+
+        self.density_slider = QSlider(Qt.Orientation.Horizontal)
+        self.density_slider.valueChanged.connect(self._emit_parameters)
+        layout.addWidget(QLabel("Density"))
+        layout.addWidget(self.density_slider)
+
+    def _emit_parameters(self):
+        """Emit current parameter values."""
+        params = {
+            "density": self.density_slider.value()
+        }
+        self.parameters_changed.emit(params)
+
+    def get_parameters(self) -> dict:
+        """Get current rendering parameters."""
+        return {"density": self.density_slider.value()}
+```
+
 ---
 
 ## 4. Project Layout & Core Components
 
-| Directory/File                   | Description                                                               |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `App/app.py`                     | Main application entry point - launches the GUI                           |
-| `App/models.py`                  | Data classes (ConnectionState, MachineConfig, PlotterState) and constants |
-| `App/serial_handler.py`          | SerialThread for background serial communication                          |
-| `App/ui/`                        | Modular UI components package                                             |
-| `App/ui/main_window.py`          | Main window coordinator - connects all panels                             |
-| `App/ui/connection_panel.py`     | Serial port connection controls                                           |
-| `App/ui/config_panel.py`         | Machine configuration (width, height, margin)                             |
-| `App/ui/state_panel.py`          | Hardware state display (position, cables, calibration)                    |
-| `App/ui/queue_panel.py`          | Command queue visualization                                               |
-| `App/ui/command_panel.py`        | Command input controls (move, home, test, etc.)                           |
-| `App/ui/console_panel.py`        | Console output for serial communication                                   |
-| `App/pixi.toml`                  | Pixi package manager configuration                                        |
-| `App/pixi.lock`                  | Locked dependency versions                                                |
-| `Arduino/simple-led-plotter.ino` | Stepper motor control firmware                                            |
+| Directory/File                             | Description                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `App/app.py`                               | Main application entry point - launches the GUI                           |
+| `App/models.py`                            | Data classes (ConnectionState, MachineConfig, PlotterState) and constants |
+| `App/config_manager.py`                    | Configuration persistence handler with JSON storage                       |
+| `App/serial_handler.py`                    | SerialThread for background serial communication                          |
+| `App/path_to_commands.py`                  | SVG path to plotter command converter                                     |
+| `App/ui/`                                  | Modular UI components package                                             |
+| `App/ui/main_window.py`                    | Main window coordinator - integrates workflow and legacy panels           |
+| `App/ui/workflow/`                         | **Workflow navigation system**                                            |
+| `App/ui/workflow/central_workflow.py`      | Workflow state machine and page container                                 |
+| `App/ui/workflow/step_bar.py`              | Visual progress indicator for workflow steps                              |
+| `App/ui/workflow/models.py`                | Workflow data models (WorkflowStep enum)                                  |
+| `App/ui/workflow/pages/connect_page.py`    | Step 1: Serial connection with port selection                             |
+| `App/ui/workflow/pages/import_page.py`     | Step 2: Image import and basic info                                       |
+| `App/ui/workflow/pages/preview_page.py`    | Step 3: Rendering controls and preview                                    |
+| `App/ui/workflow/pages/send_page.py`       | Step 4: Command sending and progress tracking                             |
+| `App/ui/workflow/pages/dashboard_page.py`  | Step 5: Real-time plotter status monitoring                               |
+| `App/ui/components/`                       | **Reusable rendering control components**                                 |
+| `App/ui/components/stipple_controls.py`    | Stippling parameter controls (density, jitter, size)                      |
+| `App/ui/components/hatching_controls.py`   | Hatching parameter controls (angle, spacing, length)                      |
+| `App/ui/components/cross_hatch_controls.py`| Cross-hatching parameter controls (both angles, spacing)                  |
+| `App/ui/styles.py`                         | Shared UI styling constants and themes                                    |
+| `App/ui/widgets.py`                        | Shared custom widgets (ModernButton, StyledGroupBox, etc.)                |
+| `App/ui/connection_panel.py`               | Serial port connection controls (legacy panel)                            |
+| `App/ui/config_panel.py`                   | Machine configuration (width, height, margin)                             |
+| `App/ui/state_panel.py`                    | Hardware state display (position, cables, calibration)                    |
+| `App/ui/queue_panel.py`                    | Command queue visualization                                               |
+| `App/ui/command_panel.py`                  | Command input controls (move, home, test, etc.)                           |
+| `App/ui/console_panel.py`                  | Console output for serial communication                                   |
+| `App/ui/image_panel.py`                    | Image import and processing panel                                         |
+| `App/ui/simulation.py`                     | Simulation canvas with coordinate visualization                           |
+| `App/ui/settings_dialog.py`                | Application settings dialog                                               |
+| `App/image_processing/`                    | **Image processing pipeline**                                             |
+| `App/image_processing/processor.py`        | Main processing coordinator                                               |
+| `App/image_processing/quantization.py`     | Color quantization algorithms                                             |
+| `App/image_processing/rendering.py`        | Stippling, hatching, and cross-hatching renderers                         |
+| `App/image_processing/svg_parser.py`       | SVG path parsing and command conversion                                   |
+| `App/image_processing/utils.py`            | Shared utilities for image processing                                     |
+| `App/assets/app_icon.icns`                 | macOS application icon                                                    |
+| `App/pixi.toml`                            | Pixi package manager configuration                                        |
+| `App/pixi.lock`                            | Locked dependency versions                                                |
+| `App/ruff.toml`                            | Ruff linter configuration                                                 |
+| `App/.pre-commit-config.yaml`              | Pre-commit hooks for code quality                                         |
+| `Arduino/simple-led-plotter.ino`           | Stepper motor control firmware                                            |
 
 **Modular Architecture:**
 The app is organized into separate, reusable UI panels that can be easily rearranged or modified independently. Each panel is self-contained with its own layout and widgets, while `main_window.py` coordinates them and handles business logic.
+
+**Workflow Architecture (New):**
+The application now features a step-based workflow system that guides users through the complete plotter operation:
+1. **Connect**: Serial port selection and hardware connection
+2. **Import**: Image file selection and basic information
+3. **Preview**: Rendering mode selection (stippling/hatching/cross-hatching) with parameter controls and visual preview
+4. **Send**: Command queue transmission with progress tracking
+5. **Dashboard**: Real-time hardware status monitoring
+
+The workflow is implemented using a state machine pattern (`central_workflow.py`) with dedicated page classes for each step. This provides a more intuitive user experience compared to the legacy dockable panel interface.
 
 **Key domain models/concepts:**
 
@@ -162,6 +284,10 @@ The app is organized into separate, reusable UI panels that can be easily rearra
 - **Coordinate System**: Cartesian (X, Y) in mm, origin at top-left motor position
 - **Cable Lengths**: Calculated from Cartesian position using Pythagorean theorem
 - **STEPS_PER_MM**: Critical calibration value (currently 5.035) stored in Arduino EEPROM
+- **Workflow Steps**: Enum-based state machine (CONNECT → IMPORT → PREVIEW → SEND → DASHBOARD)
+- **Rendering Modes**: Stippling (dot-based), hatching (single angle lines), cross-hatching (dual angle lines)
+- **SVG Paths**: Internal representation of drawing commands before conversion to plotter moves
+- **Command Queue**: List of serialized plotter commands ready for transmission
 
 ---
 
@@ -364,6 +490,7 @@ def test_cable_length_at_origin():
 
 Before committing changes that affect core functionality:
 
+**Legacy Panel Interface:**
 - [ ] Launch GUI: `pixi run python app.py`
 - [ ] Verify serial port dropdown populates
 - [ ] Test connect/disconnect cycle
@@ -373,6 +500,17 @@ Before committing changes that affect core functionality:
 - [ ] Simulation canvas responds to position changes
 - [ ] Settings dialog saves/loads correctly
 - [ ] All dock panels toggle via View menu
+
+**Workflow Interface (New):**
+- [ ] Complete full workflow: Connect → Import → Preview → Send → Dashboard
+- [ ] Test Connect page: Port selection, connection state
+- [ ] Test Import page: Image file selection, preview thumbnail
+- [ ] Test Preview page: Switch between stippling/hatching/cross-hatching modes
+- [ ] Verify parameter controls update preview in real-time
+- [ ] Test Send page: Queue generation, command transmission
+- [ ] Test Dashboard page: Real-time position updates from hardware
+- [ ] Verify navigation controls (Next/Previous) enable/disable correctly
+- [ ] Test configuration persistence across app restarts
 
 ### Adding Automated Tests (Future)
 
@@ -397,6 +535,71 @@ pixi run pytest App/tests/
 
 ---
 
+## 10.1 Best Practices from Recent Development
+
+### Workflow System Design
+
+**Pattern: State machine with dedicated pages**
+- Each workflow step is an independent QWidget with `on_enter()` and `on_exit()` lifecycle methods
+- `can_proceed()` method validates state before allowing navigation
+- Signals (`next_requested`, `previous_requested`) for loose coupling between pages and coordinator
+- Central workflow coordinator (`central_workflow.py`) manages state transitions
+
+**Benefits:**
+- Easy to add new steps without modifying existing pages
+- Clear separation of concerns
+- Testable page logic independent of navigation
+
+### Component-Based Rendering Controls
+
+**Pattern: Reusable parameter control groups**
+- Each rendering mode (stippling, hatching, cross-hatching) has a dedicated QGroupBox component
+- Components emit `parameters_changed` signal with dict of current values
+- `get_parameters()` method provides snapshot of current state
+- Located in `ui/components/` for reusability
+
+**Benefits:**
+- DRY principle - controls can be used in multiple contexts (workflow page, legacy panel)
+- Consistent UI/UX across rendering modes
+- Easy to extend with new rendering modes
+
+### Styling System
+
+**Pattern: Centralized styling constants**
+- `ui/styles.py` contains all color schemes, fonts, spacing constants
+- Use constants instead of hardcoded values: `COLORS["PRIMARY"]` not `"#4A90E2"`
+- Shared widgets in `ui/widgets.py` apply consistent styling automatically
+
+**Benefits:**
+- Easy to change theme/appearance globally
+- Consistent visual identity
+- Accessible for designers who don't know PyQt
+
+### Configuration Persistence
+
+**Pattern: JSON-based config manager**
+- `config_manager.py` handles all reads/writes to `~/.polarplot_config.json`
+- ConfigManager as singleton pattern for global access
+- Atomic writes to prevent corruption
+- Schema validation on load
+
+**Benefits:**
+- Settings persist across sessions
+- Easy to inspect/debug configuration files
+- Safe concurrent access
+
+### Pre-commit Hooks for Code Quality
+
+**Pattern: Automated linting and formatting**
+- `.pre-commit-config.yaml` runs Ruff linter before commits
+- `ruff.toml` configures project-specific rules
+- Catches common issues (unused imports, line length, etc.) before they enter repo
+
+**Benefits:**
+- Consistent code style across contributors
+- Catches bugs early (undefined variables, unused code)
+- Reduces code review friction
+
 ## 11. Common Pitfalls
 
 **Hardware-Specific:**
@@ -419,6 +622,31 @@ pixi run pytest App/tests/
 - **Modifying kinematics without testing**: Can damage hardware or cause cable tangling
 - **Changing motor speed without testing**: Too fast = skipped steps, too slow = inefficient
 - **Removing safety constraints**: Could damage motors or plotter structure
+
+### Known Issues (December 2025)
+
+**High Priority:**
+
+- **Output orientation bug**: Current plotter output is upside-down and inverted (see README photos)
+  - Likely issue in coordinate transformation or Y-axis direction
+  - Needs investigation in kinematics calculations or SVG path generation
+  - May require flipping Y coordinates or reversing path order
+
+**Medium Priority:**
+
+- **Performance with large images**: Rendering can be slow for high-resolution images with dense stippling
+  - Consider adding progress indicators
+  - Potential optimization: render on background thread
+
+- **No automated testing**: Manual testing only, increases risk of regressions
+  - Recommended: Add pytest for coordinate calculations, SVG parsing
+  - See section 9.1 for testing strategy
+
+**Low Priority:**
+
+- **Legacy panel system**: Both workflow and legacy dockable panels coexist, causing code duplication
+  - Consider deprecating legacy panels once workflow is stable
+  - Document migration path for existing functionality
 
 ---
 

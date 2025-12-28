@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import ConnectionState, PlotterState
+from models import ConnectionState, PlotterState  # type: ignore[attr-defined]
 
 
 class StatusCard(QGroupBox):

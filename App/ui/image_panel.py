@@ -34,7 +34,7 @@ from ui.components import (
     HatchingControlsWidget,
     StippleControlsWidget,
 )
-from ui.styles import ThemeColors
+from ui.styles import image_preview_stylesheet
 
 
 class ProcessingThread(QThread):
@@ -144,28 +144,18 @@ class ImagePanel(QGroupBox):
         self.preview_label.setMinimumSize(200, 150)
         self.preview_label.setMaximumSize(400, 300)
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setStyleSheet(
-            f"border: 1px solid gray; background-color: {ThemeColors.BACKGROUND_PANEL};"
-        )
-        self.preview_label.setText("Image preview will appear here")
+        self.preview_label.setStyleSheet(image_preview_stylesheet())
+        # self.preview_label.setText("Image preview will appear here")
         preview_layout.addWidget(self.preview_label)
 
         # Output image preview
-        output_layout = QVBoxLayout()
-        output_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        self.output_preview_label = QLabel("Output Preview:")
-        output_layout.addWidget(self.output_preview_label)
-
         self.output_preview_svg = QSvgWidget()
         self.output_preview_svg.setMinimumSize(200, 150)
         self.output_preview_svg.setMaximumSize(400, 300)
-        self.output_preview_svg.setStyleSheet(
-            f"border: 1px solid gray; background-color: {ThemeColors.BACKGROUND_PANEL};"
-        )
-        output_layout.addWidget(self.output_preview_svg)
+        self.output_preview_svg.setStyleSheet(image_preview_stylesheet())
+        self.output_preview_svg.setToolTip("Preview of vectorized output SVG")
 
-        preview_layout.addLayout(output_layout)
+        preview_layout.addWidget(self.output_preview_svg)
 
         parent_layout.addLayout(preview_layout)
 

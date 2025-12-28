@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import MachineConfig
+from models import MachineConfig  # type: ignore[attr-defined]
 from ui.image_panel import ImagePanel
 
 

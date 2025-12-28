@@ -1,5 +1,7 @@
 """SVG parsing and path extraction functionality."""
 
+from itertools import chain
+
 import svg
 
 from models import ColoredPath
@@ -20,8 +22,6 @@ def colored_paths_to_svg(
         # Return empty SVG if no paths
         return svg.SVG(viewBox=svg.ViewBoxSpec(0, 0, 100, 100), elements=[]).as_str()
 
-    from itertools import chain
-
     elements: list[svg.Element] = []
 
     # Calculate bounding box from all coordinates
@@ -38,10 +38,11 @@ def colored_paths_to_svg(
             points.append(points[0])  # Close the path
 
         # Flatten points for SVG Polyline
-        path_points = list(chain.from_iterable(points))
+        # Cast to list to satisfy type checker (svg library uses list[Number])
+        path_points: list[float] = list(chain.from_iterable(points))
 
         svg_element = svg.Polyline(
-            points=path_points,
+            points=path_points,  # type: ignore[arg-type]
             stroke=f"rgb({r},{g},{b})",
             fill="none" if not path.is_closed else f"rgb({r},{g},{b})",
             stroke_width=1,

@@ -169,10 +169,12 @@ def get_color(image: Image.Image, x: int, y: int) -> "tuple[int, int, int]":
     if 0 <= x < width and 0 <= y < height:
         pixel = image.getpixel((x, y))
         if isinstance(pixel, tuple):
-            return pixel[:3]  # RGB only (drop alpha if present)
+            r, g, b = pixel[:3]
+            return (int(r), int(g), int(b))  # RGB only (drop alpha if present)
         else:
             # Grayscale pixel, convert to RGB tuple
-            return (pixel, pixel, pixel)
+            gray_int = int(pixel) if pixel is not None else 255
+            return (gray_int, gray_int, gray_int)
     return (255, 255, 255)  # Default to white for out of bounds
 
 
