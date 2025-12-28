@@ -82,7 +82,7 @@ class ImagePanel(QGroupBox):
     # Signals for communication with main window
     processing_complete = pyqtSignal(object)  # ProcessedImage
     preview_requested = pyqtSignal(object)  # ProcessedImage
-    add_to_queue_requested = pyqtSignal(list)  # List[str] commands
+    add_to_queue_requested = pyqtSignal(list, float)  # List[str] commands, time estimate in seconds
 
     def __init__(self, machine_config: MachineConfig, parent: QWidget | None = None):
         super().__init__(None, parent)
@@ -432,6 +432,8 @@ class ImagePanel(QGroupBox):
         if not self.processed_result:
             return
 
+        # FIXME: Do this in a background thread, path optimization can be slow!!
+
         # Convert paths to commands
         converter = PathToCommandsConverter(self.machine_config)
         commands = converter.paths_to_commands(
@@ -454,15 +456,15 @@ class ImagePanel(QGroupBox):
             self.status_label.setText(f"Validation errors:\n{error_text}")
             return
 
-        # Emit signal with commands
-        self.add_to_queue_requested.emit(commands)
-
         # Estimate time
-        time_s = converter.estimate_execution_time(commands)
-        time_m = time_s / 60
+        time_estimate_s = converter.estimate_execution_time(commands)
+        time_estimate_m = time_estimate_s / 60
         self.status_label.setText(
-            f"Added {len(commands)} commands to queue (est. {time_m:.1f} minutes)"
+            f"Added {len(commands)} commands to queue (est. {time_estimate_m:.1f} minutes)"
         )
+
+        # Emit signal with commands
+        self.add_to_queue_requested.emit(commands, time_estimate_s)
 
     # === Public Methods ===
 

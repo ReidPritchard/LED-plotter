@@ -516,10 +516,10 @@ class PlotterControlWindow(QMainWindow):
             self.queue_panel.add_command(command)
         self._update_queue_count()
 
-    def _update_queue_count(self):
+    def _update_queue_count(self, time_estimate: float = 0.0):
         """Update queue count in dashboard."""
         count = self.queue_panel.count()
-        self.central_workflow.update_queue_count(count)
+        self.central_workflow.update_queue_count(count, time_estimate)
 
     def _queue_move_command(self):
         """Queue a move command with current input values."""
@@ -641,11 +641,11 @@ class PlotterControlWindow(QMainWindow):
         """Show processed paths in simulation canvas."""
         self.console_panel.append(f"🔍 Preview loaded: {len(processed_image.paths)} paths")
 
-    def _queue_image_commands(self, commands: "list[str]"):
+    def _queue_image_commands(self, commands: list[str], time_estimate: float):
         """Add image-generated commands to queue."""
         for command in commands:
             self.queue_panel.add_command(command)
-        self._update_queue_count()
+        self._update_queue_count(time_estimate)
         self.console_panel.append(f"➕ Added {len(commands)} commands from image to queue")
 
     # === Application Lifecycle ===

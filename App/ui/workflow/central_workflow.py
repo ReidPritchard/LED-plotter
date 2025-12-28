@@ -7,18 +7,23 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import ConnectionState, MachineConfig, PlotterState, ProcessedImage  # type: ignore[attr-defined]
+from models import (  # type: ignore[attr-defined]
+    ConnectionState,
+    MachineConfig,
+    PlotterState,
+    ProcessedImage,
+)
 from ui.command_panel import CommandPanel
 from ui.image_panel import ImagePanel
 from ui.queue_panel import QueuePanel
 from ui.simulation import SimulationUI
 from ui.workflow.models import WorkflowStep
-from ui.workflow.step_bar import WorkflowStepBar
+from ui.workflow.pages.connect_page import ConnectPage
 from ui.workflow.pages.dashboard_page import DashboardPage
 from ui.workflow.pages.import_page import ImportPage
 from ui.workflow.pages.preview_page import PreviewPage
-from ui.workflow.pages.connect_page import ConnectPage
 from ui.workflow.pages.send_page import SendPage
+from ui.workflow.step_bar import WorkflowStepBar
 
 
 class CentralWorkflowWidget(QWidget):
@@ -39,7 +44,7 @@ class CentralWorkflowWidget(QWidget):
     # Forwarded signals from embedded panels
     processing_complete = pyqtSignal(object)  # ProcessedImage
     preview_requested = pyqtSignal(object)  # ProcessedImage
-    add_to_queue_requested = pyqtSignal(list)  # List[str] commands
+    add_to_queue_requested = pyqtSignal(list, float)  # paths, time_estimate
 
     # Connection signals from ConnectPage
     connect_requested = pyqtSignal(str)  # Port name
@@ -180,9 +185,11 @@ class CentralWorkflowWidget(QWidget):
         self.dashboard_page.update_connection_state(state, port)
         self.connect_page.update_connection_state(state)
 
-    def update_queue_count(self, count: int) -> None:
+    def update_queue_count(self, count: int, time_estimate: float = 0.0) -> None:
         """Update queue count display on dashboard."""
-        self.dashboard_page.update_queue_count(count)
+        self.dashboard_page.update_queue_count(count, time_estimate)
+        self.preview_page.update_command_count(count)
+        self.preview_page.update_estimated_time(time_estimate)
 
     def update_plotter_position(self, x: float, y: float) -> None:
         """Update plotter position on dashboard."""

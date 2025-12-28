@@ -30,13 +30,12 @@ repos:
       - id: ruff-format
 
   # Pyright - Python type checker (runs via pixi environment)
-  # Note: Some import resolution errors in nested packages may persist
-  # due to pre-commit environment isolation, but core type checking works
+  # Note: Must run from App/ directory where pyrightconfig.json is located
   - repo: local
     hooks:
       - id: pyright
         name: pyright
-        entry: bash -c 'cd "$PWD" && pixi run pyright'
+        entry: bash -c 'cd App && pixi run pyright'
         language: system
         types: [python]
         pass_filenames: false

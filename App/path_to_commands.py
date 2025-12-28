@@ -6,6 +6,8 @@ Arduino plotter. Commands follow the format: M x y [r g b]
 
 import math
 
+import numpy as np
+
 from models import ColoredPath, MachineConfig, RenderStyle
 
 
@@ -227,41 +229,101 @@ class PathToCommandsConverter:
         return len(errors) == 0, errors
 
     def optimize_path_order(self, paths: list[ColoredPath]) -> list[ColoredPath]:
-        """Reorder paths to minimize travel distance.
+        """
+        Reorder paths to minimize travel distance using improved nearest-neighbor heuristic.
 
-        Uses a simple nearest-neighbor heuristic.
+        Enhancements over basic greedy algorithm:
+        1. Starts from path closest to machine center (typical home position)
+        2. Considers reversing paths to minimize travel distance
+        3. Evaluates both endpoints of each candidate path
 
-        AIDEV-NOTE: This is a greedy approach. For better results,
-        consider grouping by color or using 2-opt optimization.
+        Args:
+            paths: List of ColoredPath objects to optimize
+
+        Returns:
+            Optimized list of ColoredPath objects with minimal non-drawing travel
+
+        AIDEV-NOTE: Path reversal significantly reduces travel. Each path is evaluated
+        in both normal and reversed orientation to find the shortest connection.
         """
         if len(paths) <= 1:
             return paths
 
-        optimized = []
-        remaining = list(paths)
+        remaining = paths.copy()
 
-        # Start from first path
-        current = remaining.pop(0)
-        optimized.append(current)
+        # Start with path closest to machine center (home position)
+        # This minimizes initial travel from typical starting position
+        machine_center = np.array([self.machine_config.width / 2, self.machine_config.height / 2])
 
-        # Greedily pick nearest path
+        # Find path with start point closest to center
+        best_start_path = None
+        best_start_dist = float("inf")
+
+        for path in remaining:
+            if not path.points:
+                continue
+            dist_to_start = np.linalg.norm(np.array(path.points[0]) - machine_center)
+            dist_to_end = np.linalg.norm(np.array(path.points[-1]) - machine_center)
+
+            # Check if starting from this path (normal or reversed) is better
+            if dist_to_start < best_start_dist:
+                best_start_dist = dist_to_start
+                best_start_path = path
+
+        if best_start_path is None:
+            return paths
+
+        remaining.remove(best_start_path)
+        current = best_start_path
+        optimized = [current]
+
+        # Greedy nearest-neighbor with path reversal
         while remaining:
-            current_end = current.points[-1]
-            min_dist = float("inf")
-            nearest_idx = 0
+            current_end = np.array(current.points[-1])
 
-            for i, path in enumerate(remaining):
-                # Distance to start of this path
-                path_start = path.points[0]
-                dx = path_start[0] - current_end[0]
-                dy = path_start[1] - current_end[1]
-                dist = math.sqrt(dx * dx + dy * dy)
+            best_candidate = None
+            best_distance = float("inf")
+            best_reversed = False
 
-                if dist < min_dist:
-                    min_dist = dist
-                    nearest_idx = i
+            # Evaluate all remaining paths in both orientations
+            for candidate in remaining:
+                if not candidate.points:
+                    continue
 
-            current = remaining.pop(nearest_idx)
-            optimized.append(current)
+                candidate_start = np.array(candidate.points[0])
+                candidate_end = np.array(candidate.points[-1])
+
+                # Distance if we connect to the start (normal orientation)
+                dist_to_start = np.linalg.norm(candidate_start - current_end)
+
+                # Distance if we connect to the end (requires reversing path)
+                dist_to_end = np.linalg.norm(candidate_end - current_end)
+
+                # Choose the orientation with minimum travel distance
+                if dist_to_start < best_distance:
+                    best_distance = dist_to_start
+                    best_candidate = candidate
+                    best_reversed = False
+
+                if dist_to_end < best_distance:
+                    best_distance = dist_to_end
+                    best_candidate = candidate
+                    best_reversed = True
+
+            if best_candidate is None:
+                # No valid candidates found, add remaining paths as-is
+                optimized.extend(remaining)
+                break
+
+            remaining.remove(best_candidate)
+
+            # Reverse the path if that provides a shorter connection
+            if best_reversed:
+                best_candidate = ColoredPath(
+                    points=best_candidate.points[::-1], color=best_candidate.color
+                )
+
+            optimized.append(best_candidate)
+            current = best_candidate
 
         return optimized

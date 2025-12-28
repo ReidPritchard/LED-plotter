@@ -28,13 +28,14 @@ class SimulationCanvas(QtWidgets.QWidget):
         self.path_trail: List[Tuple[float, float]] = []
         self.show_trail = True
         self.show_safe_area = True
+        self.show_cables = True
 
         # Preview paths from image processing
         self.preview_paths: List[ColoredPath] = []
         self.show_preview = True
 
         # AIDEV-NOTE: LED color state - updates from M x y r g b commands
-        self.led_color = (255, 100, 0)  # Default orange
+        self.led_color = (0, 0, 0)  # Default off
 
     def set_position(self, x: float, y: float):
         """Update the simulated gondola position."""
@@ -164,20 +165,21 @@ class SimulationCanvas(QtWidgets.QWidget):
 
         # Draw cables from motors to gondola
         gondola_pos = self._world_to_screen(self.sim_x, self.sim_y)
-        painter.setPen(QPen(ThemeColors.CABLE_LEFT, 2))
-        painter.drawLine(
-            int(left_motor[0]),
-            int(left_motor[1]),
-            int(gondola_pos[0]),
-            int(gondola_pos[1]),
-        )
-        painter.setPen(QPen(ThemeColors.CABLE_RIGHT, 2))
-        painter.drawLine(
-            int(right_motor[0]),
-            int(right_motor[1]),
-            int(gondola_pos[0]),
-            int(gondola_pos[1]),
-        )
+        if self.show_cables:
+            painter.setPen(QPen(ThemeColors.CABLE_LEFT, 2))
+            painter.drawLine(
+                int(left_motor[0]),
+                int(left_motor[1]),
+                int(gondola_pos[0]),
+                int(gondola_pos[1]),
+            )
+            painter.setPen(QPen(ThemeColors.CABLE_RIGHT, 2))
+            painter.drawLine(
+                int(right_motor[0]),
+                int(right_motor[1]),
+                int(gondola_pos[0]),
+                int(gondola_pos[1]),
+            )
 
         # Draw path trail
         if self.show_trail and len(self.path_trail) > 1:
@@ -189,6 +191,9 @@ class SimulationCanvas(QtWidgets.QWidget):
                 screen_pos = self._world_to_screen(self.path_trail[i][0], self.path_trail[i][1])
                 path.lineTo(QPointF(screen_pos[0], screen_pos[1]))
 
+            # TODO: It would be cool to have an option to display the trail
+            # as the colors the LED was set to at each point. This would
+            # let users see what the long-exposure image would look like.
             painter.setPen(QPen(ThemeColors.TRAIL_PATH, 1.5))
             painter.drawPath(path)
 
@@ -280,7 +285,7 @@ class SimulationUI(QtWidgets.QWidget):
 
         # Canvas
         self.canvas = SimulationCanvas(self.machine_config)
-        main_layout.addWidget(self.canvas)
+        main_layout.addWidget(self.canvas, stretch=2)
 
         # Control panel
         control_layout = QtWidgets.QHBoxLayout()
@@ -313,11 +318,11 @@ class SimulationUI(QtWidgets.QWidget):
         speed_layout = QtWidgets.QHBoxLayout()
         speed_layout.addWidget(QtWidgets.QLabel("Speed:"))
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setMinimum(50)
-        self.speed_slider.setMaximum(1000)
+        self.speed_slider.setMinimum(100)
+        self.speed_slider.setMaximum(1500)
         self.speed_slider.setValue(200)
         self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.speed_slider.setTickInterval(50)
+        self.speed_slider.setTickInterval(100)
         speed_layout.addWidget(self.speed_slider)
         self.speed_label = QtWidgets.QLabel("100 mm/s")
         speed_layout.addWidget(self.speed_label)
@@ -395,6 +400,7 @@ class SimulationUI(QtWidgets.QWidget):
         self.target_y = self.machine_config.height / 2.0
         self.canvas.set_position(self.target_x, self.target_y)
         self.canvas.clear_trail()
+        self.canvas.clear_preview_paths()
 
         # Clear queue execution state
         self.queue_execution_active = False

@@ -221,13 +221,17 @@ class DashboardPage(QWidget):
             self.connection_card.set_status_color("gray")
             self.home_btn.setEnabled(False)
 
-    def update_queue_count(self, count: int) -> None:
+    def update_queue_count(self, count: int, time_estimate: float = 0.0) -> None:
         """Update the queue status card."""
         self.queue_card.set_value(f"{count} commands")
         if count == 0:
             self.queue_card.set_detail("Queue is empty")
         else:
-            self.queue_card.set_detail("Ready to send")
+            estimate_minutes = time_estimate / 60
+            if estimate_minutes >= 1:
+                self.queue_card.set_detail(f"Ready to send\nEst. time: {estimate_minutes:.1f}min")
+            else:
+                self.queue_card.set_detail(f"Ready to send\nEst. time: {time_estimate:.1f}s")
 
     def update_image_status(self, loaded: bool, path_count: int = 0, cmd_count: int = 0) -> None:
         """Update the image status card."""

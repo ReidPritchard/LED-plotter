@@ -38,6 +38,7 @@ class PreviewPage(QWidget):
 
         self._path_count = 0
         self._command_count = 0
+        self.time_estimate = 0.0
 
         self._setup_ui()
 
