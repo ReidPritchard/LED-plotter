@@ -19,7 +19,7 @@ from models import (
 
 from .quantization import quantize_colors
 from .rendering import render_cross_hatch, render_hatching, render_stipples
-from .svg_parser import colored_paths_to_svg, extract_paths
+from .svg_parser import colored_paths_to_svg
 from .utils import (
     calculate_total_length,
     count_commands,
@@ -80,17 +80,6 @@ class ImageProcessor:
         num_colors = num_colors or self.processing_config.num_colors
         method = method or self.processing_config.quantization_method
         return quantize_colors(image, num_colors, method)
-
-    def extract_paths(self, svg_content: str):
-        """Parse SVG and extract paths with colors.
-
-        Args:
-            svg_content: SVG string from vectorization
-
-        Returns:
-            List of ColoredPath objects with points in pixel coordinates
-        """
-        return extract_paths(svg_content)
 
     def scale_paths_to_machine(
         self,
@@ -166,11 +155,8 @@ class ImageProcessor:
             raise NotImplementedError(f"Render style {style} not implemented in this snippet.")
 
         # Save intermediate SVG to preview paths
-        result_path_preview_svg = colored_paths_to_svg(
-            paths,
-            svg_width=int(self.machine_config.width),
-            svg_height=int(self.machine_config.height),
-        )
+        # AIDEV-NOTE: ViewBox is now calculated from actual path coordinates
+        result_path_preview_svg = colored_paths_to_svg(paths)
         with open(TEMP_SVG_PATH, "w") as f:
             f.write(result_path_preview_svg)
             print(f"Saved intermediate SVG to {TEMP_SVG_PATH} for preview.")
@@ -196,6 +182,8 @@ class ImageProcessor:
             offset_y=offset_y,
             original_width=orig_width,
             original_height=orig_height,
+            new_width=scaled_image.size[0],
+            new_height=scaled_image.size[1],
             total_path_length=total_length,
             command_count=command_count,
         )

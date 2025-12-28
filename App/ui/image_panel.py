@@ -158,6 +158,9 @@ class ImagePanel(QGroupBox):
         self.output_preview_svg = QSvgWidget()
         self.output_preview_svg.setMinimumSize(200, 150)
         self.output_preview_svg.setMaximumSize(400, 300)
+        self.output_preview_svg.setStyleSheet(
+            f"border: 1px solid gray; background-color: {ThemeColors.BACKGROUND_PANEL};"
+        )
         output_layout.addWidget(self.output_preview_svg)
 
         preview_layout.addLayout(output_layout)

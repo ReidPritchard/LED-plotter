@@ -14,7 +14,8 @@ CONFIG_FILE = Path.home() / ".polarplot_config.json"
 
 # Path for storing temporary SVG files during image processing
 # Used to display output preview in the UI before sending to plotter
-TEMP_SVG_PATH = Path("/tmp/polarplot_temp.svg")
+# TEMP_SVG_PATH = Path("/tmp/polarplot_temp.svg")
+TEMP_SVG_PATH = Path("./tmp/polarplot_temp.svg")
 
 
 class ConnectionState(Enum):
@@ -138,10 +139,10 @@ class ImageProcessingConfig:
     cross_hatch_max_angles: int = 4  # Maximum hatch directions (2-4)
     cross_hatch_base_angle: float = 45.0  # Starting angle in degrees (default: diagonal)
     cross_hatch_line_spacing_dark: float = 2.0  # Spacing in darkest areas (mm)
-    cross_hatch_line_spacing_light: float = 15.0  # Spacing in lightest areas (mm)
-    cross_hatch_segment_max_length: float = 50.0  # Max segment length (mm)
-    cross_hatch_segment_min_length: float = 5.0  # Min segment length (mm)
-    cross_hatch_segment_gap: float = 2.0  # Gap between segments (mm)
+    cross_hatch_line_spacing_light: float = 10.0  # Spacing in lightest areas (mm)
+    cross_hatch_segment_max_length: float = 20.0  # Max segment length (mm)
+    cross_hatch_segment_min_length: float = 3.0  # Min segment length (mm)
+    cross_hatch_segment_gap: float = 1.0  # Gap between segments (mm)
 
 
 @dataclass
@@ -165,6 +166,8 @@ class ProcessedImage:
     # Original image dimensions (pixels)
     original_width: int = 0
     original_height: int = 0
+    new_width: int = 0
+    new_height: int = 0
 
     # Statistics
     total_path_length: float = 0.0  # Total path length in mm

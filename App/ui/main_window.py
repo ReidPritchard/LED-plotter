@@ -1,10 +1,11 @@
 """Main application window for plotter control."""
 
+import os
 from typing import Optional
 
 import serial.tools.list_ports  # Import for port listing
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (
     QComboBox,
     QDockWidget,
@@ -37,6 +38,8 @@ class PlotterControlWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("PolarPlot Controller v0.1.0")
         self.setMinimumSize(1000, 800)
+
+        self.setWindowIcon(QIcon(os.path.join("assets", "app_icon.icns")))
 
         # Application state
         self.config_manager = ConfigManager()
