@@ -1,6 +1,6 @@
 """Connect page for serial port connection management."""
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -278,14 +278,18 @@ class ConnectPage(QWidget):
         self._current_state = state
 
         if state == ConnectionState.CONNECTED:
-            self.status_indicator.setStyleSheet(f"font-size: 24px; color: {StatusColors.CONNECTED};")
+            self.status_indicator.setStyleSheet(
+                f"font-size: 24px; color: {StatusColors.CONNECTED};"
+            )
             self.status_text.setText("Connected")
             self.connect_btn.setText("Disconnect")
             self.connect_btn.setStyleSheet(self._disconnect_button_style())
             self.port_combo.setEnabled(False)
             self.refresh_btn.setEnabled(False)
         elif state == ConnectionState.CONNECTING:
-            self.status_indicator.setStyleSheet(f"font-size: 24px; color: {StatusColors.CONNECTING};")
+            self.status_indicator.setStyleSheet(
+                f"font-size: 24px; color: {StatusColors.CONNECTING};"
+            )
             self.status_text.setText("Connecting...")
             self.connect_btn.setText("Connecting...")
             self.connect_btn.setEnabled(False)
@@ -300,7 +304,9 @@ class ConnectPage(QWidget):
             self.port_combo.setEnabled(True)
             self.refresh_btn.setEnabled(True)
         else:  # DISCONNECTED
-            self.status_indicator.setStyleSheet(f"font-size: 24px; color: {StatusColors.DISCONNECTED};")
+            self.status_indicator.setStyleSheet(
+                f"font-size: 24px; color: {StatusColors.DISCONNECTED};"
+            )
             self.status_text.setText("Disconnected")
             self.connect_btn.setText("Connect")
             self.connect_btn.setStyleSheet(self._connect_button_style())

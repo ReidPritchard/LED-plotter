@@ -1,4 +1,14 @@
 .DS_Store
+
+# Serena MCP project files
+.serena/
+
+./**/__pycache__/
+
+./**/.ruff_cache/
+
+App/.pixi/
+
 App/debug_output.svg
 App/debug_commands.txt
 App/tmp/

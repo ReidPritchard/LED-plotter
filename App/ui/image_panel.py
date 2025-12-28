@@ -105,9 +105,11 @@ class ImagePanel(QGroupBox):
         self._create_preview_area(layout)
 
         # --- Color Quantization Controls ---
+        # FIXME: These aren't used. Maybe just remove them?
         self._create_quantization_controls(layout)
 
         # --- Processing Options ---
+        # TODO: Make this both scrollable and collapsible
         self._create_processing_options(layout)
 
         # --- Action Buttons ---
@@ -422,6 +424,7 @@ class ImagePanel(QGroupBox):
         )
 
         # Update output preview SVG
+        # FIXME: Find a way to resize SVG to fit preview area (and maintain loaded img aspect ratio)
         self.output_preview_svg.load(str(TEMP_SVG_PATH))
 
         # Emit signal

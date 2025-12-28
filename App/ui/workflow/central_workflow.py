@@ -1,7 +1,5 @@
 """Central workflow widget that manages the main application workflow."""
 
-from typing import List
-
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QStackedWidget,
@@ -9,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import ColoredPath, ConnectionState, MachineConfig, PlotterState, ProcessedImage
+from models import ConnectionState, MachineConfig, PlotterState, ProcessedImage
 from ui.command_panel import CommandPanel
 from ui.image_panel import ImagePanel
 from ui.queue_panel import QueuePanel
@@ -92,10 +90,10 @@ class CentralWorkflowWidget(QWidget):
 
         # Add pages to stack in WorkflowStep order
         self.stack.addWidget(self.dashboard_page)  # 0 = DASHBOARD
-        self.stack.addWidget(self.import_page)     # 1 = IMPORT
-        self.stack.addWidget(self.preview_page)    # 2 = PREVIEW
-        self.stack.addWidget(self.connect_page)    # 3 = CONNECT
-        self.stack.addWidget(self.send_page)       # 4 = SEND
+        self.stack.addWidget(self.import_page)  # 1 = IMPORT
+        self.stack.addWidget(self.preview_page)  # 2 = PREVIEW
+        self.stack.addWidget(self.connect_page)  # 3 = CONNECT
+        self.stack.addWidget(self.send_page)  # 4 = SEND
 
     def _connect_signals(self) -> None:
         """Connect all internal signals."""
@@ -103,9 +101,7 @@ class CentralWorkflowWidget(QWidget):
         self.step_bar.step_selected.connect(self._on_step_selected)
 
         # Dashboard quick actions
-        self.dashboard_page.go_to_import.connect(
-            lambda: self.set_current_step(WorkflowStep.IMPORT)
-        )
+        self.dashboard_page.go_to_import.connect(lambda: self.set_current_step(WorkflowStep.IMPORT))
         self.dashboard_page.go_to_connect.connect(
             lambda: self.set_current_step(WorkflowStep.CONNECT)
         )
@@ -115,30 +111,18 @@ class CentralWorkflowWidget(QWidget):
         self.import_page.go_to_dashboard.connect(
             lambda: self.set_current_step(WorkflowStep.DASHBOARD)
         )
-        self.import_page.go_to_preview.connect(
-            lambda: self.set_current_step(WorkflowStep.PREVIEW)
-        )
+        self.import_page.go_to_preview.connect(lambda: self.set_current_step(WorkflowStep.PREVIEW))
 
         # Preview page navigation
-        self.preview_page.go_to_import.connect(
-            lambda: self.set_current_step(WorkflowStep.IMPORT)
-        )
-        self.preview_page.go_to_connect.connect(
-            lambda: self.set_current_step(WorkflowStep.CONNECT)
-        )
+        self.preview_page.go_to_import.connect(lambda: self.set_current_step(WorkflowStep.IMPORT))
+        self.preview_page.go_to_connect.connect(lambda: self.set_current_step(WorkflowStep.CONNECT))
 
         # Connect page navigation
-        self.connect_page.go_to_preview.connect(
-            lambda: self.set_current_step(WorkflowStep.PREVIEW)
-        )
-        self.connect_page.go_to_send.connect(
-            lambda: self.set_current_step(WorkflowStep.SEND)
-        )
+        self.connect_page.go_to_preview.connect(lambda: self.set_current_step(WorkflowStep.PREVIEW))
+        self.connect_page.go_to_send.connect(lambda: self.set_current_step(WorkflowStep.SEND))
 
         # Send page navigation
-        self.send_page.go_to_connect.connect(
-            lambda: self.set_current_step(WorkflowStep.CONNECT)
-        )
+        self.send_page.go_to_connect.connect(lambda: self.set_current_step(WorkflowStep.CONNECT))
         self.send_page.go_to_dashboard.connect(
             lambda: self.set_current_step(WorkflowStep.DASHBOARD)
         )

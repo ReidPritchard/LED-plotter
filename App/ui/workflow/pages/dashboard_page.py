@@ -64,9 +64,7 @@ class StatusCard(QGroupBox):
 
     def set_status_color(self, color: str) -> None:
         """Set the value label color."""
-        self.value_label.setStyleSheet(
-            f"font-size: 18px; font-weight: bold; color: {color};"
-        )
+        self.value_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {color};")
 
 
 class DashboardPage(QWidget):
