@@ -17,7 +17,6 @@ from models import (
     RenderStyle,
 )
 
-from .quantization import quantize_colors
 from .rendering import render_cross_hatch, render_hatching, render_stipples
 from .svg_parser import colored_paths_to_svg
 from .utils import (
@@ -59,27 +58,6 @@ class ImageProcessor:
             return image
         except Exception as e:
             raise ValueError(f"Failed to load image: {e}") from e
-
-    def quantize_colors(
-        self,
-        image: Image.Image,
-        num_colors: int | None = None,
-        method: str | None = None,
-    ) -> "tuple[Image.Image, list[tuple[int, int, int]]]":
-        """Reduce image to a limited color palette.
-
-        Args:
-            image: Input image (RGBA)
-            num_colors: Target number of colors (4-32),
-                uses config default if None
-            method: Quantization method, uses config default if None
-
-        Returns:
-            Tuple of (quantized image in RGB mode, palette list)
-        """
-        num_colors = num_colors or self.processing_config.num_colors
-        method = method or self.processing_config.quantization_method
-        return quantize_colors(image, num_colors, method)
 
     def scale_paths_to_machine(
         self,

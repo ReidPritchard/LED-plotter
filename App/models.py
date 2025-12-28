@@ -108,14 +108,10 @@ class ColoredPath:
 
 @dataclass
 class ImageProcessingConfig:
-    """Configuration for image vectorization and color quantization."""
+    """Configuration for image vectorization and rendering."""
 
     # Rendering style
     render_style: RenderStyle = RenderStyle.STIPPLES
-
-    # Color quantization
-    num_colors: int = 8  # Number of colors to quantize to (4-32)
-    quantization_method: str = "kmeans"  # "kmeans", "median_cut", "octree"
 
     # VTracer settings
     filter_speckle: int = 4  # Discard patches smaller than X px

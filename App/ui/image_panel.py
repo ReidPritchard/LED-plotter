@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
-    QSlider,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -35,6 +35,7 @@ from ui.components import (
     StippleControlsWidget,
 )
 from ui.styles import image_preview_stylesheet
+from ui.widgets import CollapsibleGroupBox
 
 
 class ProcessingThread(QThread):
@@ -104,10 +105,6 @@ class ImagePanel(QGroupBox):
         # --- Image Preview ---
         self._create_preview_area(layout)
 
-        # --- Color Quantization Controls ---
-        # FIXME: These aren't used. Maybe just remove them?
-        self._create_quantization_controls(layout)
-
         # --- Processing Options ---
         # TODO: Make this both scrollable and collapsible
         self._create_processing_options(layout)
@@ -159,67 +156,39 @@ class ImagePanel(QGroupBox):
 
         parent_layout.addLayout(preview_layout)
 
-    def _create_quantization_controls(self, parent_layout: QVBoxLayout):
-        """Create color quantization controls."""
-        quant_group = QGroupBox("Color Quantization")
-        quant_layout = QVBoxLayout()
-
-        # Number of colors
-        colors_layout = QHBoxLayout()
-        colors_layout.addWidget(QLabel("Colors:"))
-
-        self.num_colors_slider = QSlider(Qt.Orientation.Horizontal)
-        self.num_colors_slider.setRange(4, 32)
-        self.num_colors_slider.setValue(8)
-        self.num_colors_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.num_colors_slider.setTickInterval(4)
-        colors_layout.addWidget(self.num_colors_slider)
-
-        self.num_colors_label = QLabel("8")
-        self.num_colors_label.setMinimumWidth(30)
-        colors_layout.addWidget(self.num_colors_label)
-
-        quant_layout.addLayout(colors_layout)
-
-        # Quantization method
-        method_layout = QHBoxLayout()
-        method_layout.addWidget(QLabel("Method:"))
-
-        self.quant_method_combo = QComboBox()
-        self.quant_method_combo.addItems(
-            [
-                "K-Means (Best quality)",
-                "Median Cut (Faster)",
-                "Octree (Fastest)",
-            ]
-        )
-        method_layout.addWidget(self.quant_method_combo)
-
-        quant_layout.addLayout(method_layout)
-
-        quant_group.setLayout(quant_layout)
-        parent_layout.addWidget(quant_group)
-
-        # Currently not used, so just hide
-        quant_group.setVisible(False)
-
     def _create_processing_options(self, parent_layout: QVBoxLayout):
-        """Create vectorization options."""
-        options_group = QGroupBox()
-        options_layout = QVBoxLayout()
+        """Create scrollable and collapsible vectorization options."""
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
 
-        # Render style selection
-        style_layout = QHBoxLayout()
-        style_layout.addWidget(QLabel("Render Style:"))
+        # Container widget for all options
+        container = QWidget()
+        options_layout = QVBoxLayout(container)
+        options_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Render style selection group (collapsible)
+        style_group = CollapsibleGroupBox("Render Style")
+        style_layout = QVBoxLayout()
+
+        # Render style combo box
+        combo_layout = QHBoxLayout()
+        combo_layout.addWidget(QLabel("Style:"))
         self.render_style_combo = QComboBox()
         self.render_style_combo.addItems(
             [style.name.replace("_", " ").title() for style in RenderStyle]
         )
-        style_layout.addWidget(self.render_style_combo)
-        options_layout.addLayout(style_layout)
+        combo_layout.addWidget(self.render_style_combo)
+        combo_layout.addStretch()
+        style_layout.addLayout(combo_layout)
 
-        # Style-specific settings container
-        self.style_settings_group = QGroupBox("Style Settings")
+        style_group.setLayout(style_layout)
+        options_layout.addWidget(style_group)
+
+        # Style-specific settings container (collapsible)
+        self.style_settings_group = CollapsibleGroupBox("Style Settings")
         self.style_settings_layout = QVBoxLayout()
         self.style_settings_group.setLayout(self.style_settings_layout)
         options_layout.addWidget(self.style_settings_group)
@@ -237,8 +206,12 @@ class ImagePanel(QGroupBox):
         # Initially show controls for first style
         self._update_style_controls(0)
 
-        options_group.setLayout(options_layout)
-        parent_layout.addWidget(options_group)
+        # Add stretch to push content to top
+        options_layout.addStretch()
+
+        # Set container as scroll area content
+        scroll_area.setWidget(container)
+        parent_layout.addWidget(scroll_area)
 
     def _update_style_controls(self, style_index: int):
         """Show/hide controls based on selected render style."""
@@ -288,8 +261,6 @@ class ImagePanel(QGroupBox):
     def _connect_signals(self):
         """Connect internal signals to handlers."""
         self.browse_btn.clicked.connect(self._on_browse_clicked)
-        self.num_colors_slider.valueChanged.connect(self._on_colors_changed)
-        self.quant_method_combo.currentIndexChanged.connect(self._on_method_changed)
         self.render_style_combo.currentIndexChanged.connect(self._on_render_style_changed)
         self.process_btn.clicked.connect(self._on_process_clicked)
         self.preview_btn.clicked.connect(self._on_preview_clicked)
@@ -343,20 +314,6 @@ class ImagePanel(QGroupBox):
                 self.status_label.setText("Failed to load image preview.")
         except Exception as e:
             self.status_label.setText(f"Error loading preview: {e}")
-
-    def _on_colors_changed(self, value: int):
-        """Update color count label and config."""
-        self.num_colors_label.setText(str(value))
-        self.processing_config.num_colors = value
-
-    def _on_speckle_changed(self, value: int):
-        """Update speckle filter config."""
-        self.processing_config.filter_speckle = value
-
-    def _on_method_changed(self, index: int):
-        """Update quantization method."""
-        methods = ["kmeans", "median_cut", "octree"]
-        self.processing_config.quantization_method = methods[index]
 
     def _on_render_style_changed(self, index: int):
         """Update render style and show appropriate controls."""
@@ -413,9 +370,8 @@ class ImagePanel(QGroupBox):
             f"Success! {path_count} paths, {cmd_count} commands, {total_length:.1f}mm total length"
         )
 
-        # Update output preview SVG
-        # FIXME: Find a way to resize SVG to fit preview area (and maintain loaded img aspect ratio)
-        self.output_preview_svg.load(str(TEMP_SVG_PATH))
+        # Update output preview SVG with proper scaling
+        self._load_svg_scaled(TEMP_SVG_PATH)
 
         # Emit signal
         self.processing_complete.emit(result)
@@ -434,6 +390,36 @@ class ImagePanel(QGroupBox):
 
         # Show error
         self.status_label.setText(f"Error: {pretty_msg}")
+
+    def _load_svg_scaled(self, svg_path: Path):
+        """Load SVG and scale to fit preview area while maintaining aspect ratio.
+
+        AIDEV-NOTE: Follows simulation.py pattern for aspect-ratio-preserving scaling.
+        """
+        # Load the SVG first
+        self.output_preview_svg.load(str(svg_path))
+
+        # Get SVG's native size from renderer
+        renderer = self.output_preview_svg.renderer()
+        if not renderer or not renderer.isValid():
+            return
+
+        svg_size = renderer.defaultSize()
+        if svg_size.isEmpty():
+            return
+
+        # Get available preview area (use max size as reference)
+        max_width, max_height = 400, 300
+
+        # Calculate scale to fit while maintaining aspect ratio
+        scale_x = max_width / svg_size.width()
+        scale_y = max_height / svg_size.height()
+        scale = min(scale_x, scale_y)  # Use smaller scale to fit everything
+
+        # Apply scaled size
+        new_width = int(svg_size.width() * scale)
+        new_height = int(svg_size.height() * scale)
+        self.output_preview_svg.setFixedSize(new_width, new_height)
 
     def _on_preview_clicked(self):
         """Request preview in simulation canvas."""

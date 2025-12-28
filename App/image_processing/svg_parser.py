@@ -33,6 +33,11 @@ def colored_paths_to_svg(
     for path in colored_paths:
         r, g, b = path.color
 
+        # Skip any paths that are darker than a threshold (e.g., RGB all below 10)
+        threshold = 10
+        if r < threshold and g < threshold and b < threshold:
+            continue
+
         points = list(path.points)
         if path.is_closed and points:
             points.append(points[0])  # Close the path

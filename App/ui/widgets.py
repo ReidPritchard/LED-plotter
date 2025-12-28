@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QHBoxLayout,
     QWidget,
+    QGroupBox,
 )
 
 
@@ -152,3 +153,46 @@ class WidgetFactory:
         if stretch_after:
             layout.addStretch()
         return layout
+
+
+class CollapsibleGroupBox(QGroupBox):
+    """A QGroupBox that can be collapsed/expanded by clicking its title.
+
+    The group box uses Qt's built-in checkable feature to provide
+    collapse/expand functionality. When unchecked, the content is
+    hidden and the box shrinks to just the title bar.
+    """
+
+    def __init__(self, title: str = "", parent: Optional[QWidget] = None):
+        """Initialize collapsible group box.
+
+        Args:
+            title: Title text for the group box
+            parent: Parent widget
+        """
+        super().__init__(title, parent)
+        self.setCheckable(True)
+        self.setChecked(True)  # Start expanded
+        self.toggled.connect(self._on_toggled)
+
+    def _on_toggled(self, checked: bool):
+        """Handle collapse/expand when checkbox is toggled.
+
+        Args:
+            checked: True if expanded, False if collapsed
+        """
+        # Show/hide content based on checked state
+        layout = self.layout()
+        if layout:
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item:
+                    widget = item.widget()
+                    if widget:
+                        widget.setVisible(checked)
+
+        # Adjust height constraints
+        if checked:
+            self.setMaximumHeight(16777215)  # Qt's default QWIDGETSIZE_MAX
+        else:
+            self.setMaximumHeight(30)  # Just show title bar

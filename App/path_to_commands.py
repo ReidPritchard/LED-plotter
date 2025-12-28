@@ -72,6 +72,11 @@ class PathToCommandsConverter:
         if add_home_start:
             commands.append("H")
 
+        paths = list(paths)  # Copy to avoid modifying original
+
+        # Optimize path order
+        paths = self.optimize_path_order(paths)
+
         # Convert each path
         if processing_style is RenderStyle.STIPPLES:
             # For stipples, we only want to move to the
